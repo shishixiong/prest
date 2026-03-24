@@ -1,0 +1,50 @@
+{
+    "go.useLanguageServer": true,
+    "go.gotoSymbol.includeImports": true,
+    "go.gotoSymbol.includeGoroot": true,
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "workspace",
+    "go.vetOnSave": "workspace",
+    "go.buildOnSave": "workspace",
+    "go.testFlags": [
+        "-v",
+        "-race"
+    ],
+    "go.testTimeout": "30s",
+    "go.coverOnSingleTest": true,
+    "go.coverOnSingleTestFile": true,
+    "go.coverOnTestPackage": true,
+    "go.toolsEnvVars": {
+        "GOFLAGS": "-tags=",
+        "CGO_ENABLED": "1"
+    },
+    "gopls": {
+        "usePlaceholders": false,
+        "staticcheck": true,
+        "env": {
+            "GOFLAGS": "-tags="
+        }
+    },
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "[go.mod]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "files.eol": "\n",
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit"
+    },
+    "editor.codeActionsOnSaveTimeout": 3000,
+    "makefile.configureOnOpen": false
+}

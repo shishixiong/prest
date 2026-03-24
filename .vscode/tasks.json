@@ -1,0 +1,101 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Check and Start PostgreSQL",
+            "type": "shell",
+            "command": "if ! pg_isready -h localhost -p 5432; then echo 'PostgreSQL not running, starting...'; pg_ctl start -D /Library/PostgreSQL/17/data; sleep 2; else echo 'PostgreSQL is already running'; fi",
+            "problemMatcher": [],
+            "isBackground": false,
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Start PostgreSQL (Docker)",
+            "type": "shell",
+            "command": "docker-compose up -d postgres",
+            "problemMatcher": [],
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Stop PostgreSQL (Docker)",
+            "type": "shell",
+            "command": "docker-compose down",
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Build pREST",
+            "type": "shell",
+            "command": "go build -o prestd ./cmd/prestd/main.go",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$go"]
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "make test",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Migrations",
+            "type": "shell",
+            "command": "go run ./cmd/prestd/main.go migrate up --path ./testdata/migrations",
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean Build",
+            "type": "shell",
+            "command": "rm -f prestd",
+            "problemMatcher": []
+        },
+        {
+            "label": "Initialize Database Schema",
+            "type": "shell",
+            "command": "PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d prest -f ./testdata/schema.sql",
+            "problemMatcher": [],
+            "dependsOn": ["Check and Start PostgreSQL"],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Full Development Setup",
+            "type": "shell",
+            "command": "echo 'Start PostgreSQL, load schema, and run migrations'",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Start PostgreSQL (Docker)",
+                "Initialize Database Schema",
+                "Run Migrations"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        }
+    ]
+}

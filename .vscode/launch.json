@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch pREST Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/prestd/main.go",
+            "env": {
+                "PREST_CONF": "${workspaceFolder}/prest-dev.toml",
+                "PREST_DEBUG": "true"
+            },
+            "args": [],
+            "showLog": true,
+            "trace": "verbose"
+        },
+        {
+            "name": "Debug Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}",
+            "env": {
+                "PREST_PG_HOST": "localhost",
+                "PREST_PG_PORT": "5432",
+                "PREST_PG_USER": "postgres",
+                "PREST_PG_PASS": "postgres",
+                "PREST_PG_DATABASE": "prest-test",
+                "PREST_CONF": "${workspaceFolder}/testdata/prest.toml",
+                "PREST_MIGRATIONS": "${workspaceFolder}/testdata/migrations",
+                "PREST_QUERIES_LOCATION": "${workspaceFolder}/testdata/queries"
+            },
+            "args": [
+                "-v",
+                "-race",
+                "-failfast"
+            ]
+        }
+    ]
+}

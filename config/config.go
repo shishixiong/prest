@@ -105,6 +105,7 @@ type Prest struct {
 	CORSAllowMethods     []string
 	CORSAllowCredentials bool
 	Debug                bool
+	DatabaseType         string // postgres, gaussdb
 	Adapter              adapters.Adapter
 	EnableDefaultJWT     bool
 	SingleDB             bool
@@ -187,6 +188,8 @@ func viperCfg() {
 	viper.SetDefault("http.host", "0.0.0.0")
 	viper.SetDefault("http.port", 3000)
 	viper.SetDefault("http.timeout", 60)
+
+	viper.SetDefault("database.type", "postgres")
 
 	viper.SetDefault("pg.host", "127.0.0.1")
 	viper.SetDefault("pg.port", 5432)
@@ -439,6 +442,19 @@ func getJSONAgg() (config string) {
 }
 
 func parseDBConfig(cfg *Prest) {
+	// Parse database type configuration
+	// Support: environment variable PREST_DATABASE_TYPE, config file database.type
+	databaseType := viper.GetString("database.type")
+	if databaseType == "" {
+		// Fallback to environment variable
+		databaseType = os.Getenv("PREST_DATABASE_TYPE")
+	}
+	if databaseType == "" {
+		// Default to postgres for backward compatibility
+		databaseType = "postgres"
+	}
+	cfg.DatabaseType = databaseType
+
 	cfg.PGURL = viper.GetString("pg.url")
 	cfg.PGHost = viper.GetString("pg.host")
 	cfg.PGPort = viper.GetInt("pg.port")

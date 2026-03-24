@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/prest/prest/v2/adapters/gaussdb"
 	"github.com/prest/prest/v2/adapters/postgres"
 	"github.com/prest/prest/v2/config"
 	"github.com/prest/prest/v2/router"
@@ -20,10 +21,7 @@ var RootCmd = &cobra.Command{
 	Short: "Serve a RESTful API from any PostgreSQL database",
 	Long:  `prestd (PostgreSQL REST), simplify and accelerate development, ⚡ instant, realtime, high-performance on any Postgres application, existing or new`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if config.PrestConf.Adapter == nil {
-			slog.Warn("adapter is not set. Using the default (postgres)")
-			postgres.Load()
-		}
+		initializeAdapter()
 		startServer()
 	},
 }
@@ -48,6 +46,39 @@ func Execute() {
 		slog.Error("executing root command", "err", err)
 		os.Exit(1)
 	}
+}
+
+// initializeAdapter initializes the database adapter based on configuration
+func initializeAdapter() {
+	if config.PrestConf.Adapter != nil {
+		// Adapter already initialized
+		return
+	}
+
+	// Get database type from configuration
+	dbType := config.PrestConf.DatabaseType
+	if dbType == "" {
+		dbType = "postgres" // default
+	}
+
+	// Initialize adapter based on database type
+	switch dbType {
+	case "postgres":
+		// Use the existing postgres.Load() for PostgreSQL
+		// It sets the adapter and tests the connection
+		slog.Info("Initializing PostgreSQL adapter")
+		postgres.Load()
+
+	case "gaussdb":
+		slog.Info("Initializing GaussDB adapter")
+		gaussdb.Load()
+
+	default:
+		slog.Error("Unsupported database type", "type", dbType)
+		os.Exit(1)
+	}
+
+	slog.Info("Database adapter initialized", "type", dbType)
 }
 
 // startServer starts the server
