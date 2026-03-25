@@ -25,11 +25,6 @@ type GaussDB struct {
 func Load() {
 	config.PrestConf.Adapter = &GaussDB{}
 
-	// For now, we'll use PostgreSQL connection logic
-	// TODO: Replace with GaussDB-specific connection initialization
-	// when driver is available
-	slog.Warn("GaussDB adapter using PostgreSQL connection logic (driver not available)")
-
 	// Initialize database name in connection context
 	if GetDatabase() == "" {
 		SetDatabase(config.PrestConf.PGDatabase)

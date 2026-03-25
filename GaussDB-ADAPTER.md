@@ -15,8 +15,8 @@ The adapter is currently in development with the following status:
 - ✅ Basic adapter structure implemented
 - ✅ Configuration-driven database type selection
 - ✅ System table queries overridden for GaussDB compatibility
-- ⚠️ Uses PostgreSQL driver as fallback (no GaussDB driver integrated yet)
-- ⚠️ Not fully tested (no test environment available)
+- ✅ openGauss driver integrated (`gitee.com/opengauss/openGauss-connector-go-pq`)
+- ⚠️ Not fully tested (limited test environment available)
 
 ## Configuration
 
@@ -30,7 +30,7 @@ type = "gaussdb"  # Options: "postgres" (default), "gaussdb"
 
 [pg]
 host = "localhost"
-port = 5432
+port = 18888  # Default GaussDB port is 5432, local test instance uses 18888
 user = "gaussdb"
 pass = "your_password"
 database = "your_database"
@@ -42,9 +42,9 @@ ssl.mode = "disable"
 ```bash
 export PREST_DATABASE_TYPE=gaussdb
 export PREST_PG_HOST=localhost
-export PREST_PG_PORT=5432
+export PREST_PG_PORT=18888  # Default GaussDB port is 5432, local test instance uses 18888
 export PREST_PG_USER=gaussdb
-export PREST_PG_PASS=your_password
+export PREST_PG_PASS=Ssx@1234  # Example password for local test instance
 export PREST_PG_DATABASE=your_database
 ```
 
@@ -79,15 +79,22 @@ GaussDB-specific SQL statements are defined in `adapters/gaussdb/statements/quer
 
 ### Current Implementation
 
-Currently, the adapter uses the PostgreSQL driver as a fallback since the actual GaussDB Go driver is not yet integrated. This works because GaussDB 100 is highly compatible with PostgreSQL.
+The adapter uses the openGauss driver (`gitee.com/opengauss/openGauss-connector-go-pq`) which is a PostgreSQL-compatible driver for GaussDB/openGauss databases. The driver registers itself as `"postgres"` driver name and uses PostgreSQL connection string format.
 
-### Future Integration
+### Driver Integration
 
-When the GaussDB driver is available:
+1. Import the openGauss driver: `import _ "gitee.com/opengauss/openGauss-connector-go-pq"`
+2. The driver name is `"postgres"` (same as PostgreSQL driver)
+3. Connection string format is PostgreSQL-compatible: `host=... port=... user=... password=... dbname=... sslmode=...`
 
-1. Import the GaussDB Go driver: `import "github.com/huaweicloud/gaussdb-go-driver"`
-2. Update `connection.go` to use driver name `"gaussdb"` instead of `"postgres"`
-3. Verify connection string format for GaussDB
+### Local Test Instance
+
+For local testing with the provided GaussDB instance:
+- Host: `localhost`
+- Port: `18888`
+- User: `gaussdb`
+- Password: `Ssx@1234`
+- SSL mode: `disable` (for local testing)
 
 ## Testing
 
@@ -110,36 +117,37 @@ When a test environment becomes available:
 
 ## Known Issues and Limitations
 
-1. **Driver Dependency**: Uses PostgreSQL driver instead of native GaussDB driver
-2. **System Table Differences**: Assumes PostgreSQL-compatible system tables; may need adjustment
-3. **Untested Features**: Core CRUD operations inherit from PostgreSQL but untested on GaussDB
+1. **Driver Compatibility**: Uses openGauss driver which registers as `"postgres"` driver name, potentially conflicting with PostgreSQL driver if both are imported
+2. **System Table Differences**: Assumes PostgreSQL-compatible system tables; may need adjustment based on actual GaussDB system table structure
+3. **Limited Testing**: Core CRUD operations inherit from PostgreSQL but limited testing on actual GaussDB
 4. **Distributed Features**: GaussDB distributed database features not yet supported
 5. **Performance Optimizations**: No GaussDB-specific optimizations implemented
 
 ## Future Enhancements
 
-1. **Native Driver Integration**: Integrate official GaussDB Go driver
-2. **System Table Research**: Verify and update system table queries based on GaussDB documentation
-3. **Distributed Database Support**: Add support for GaussDB distributed features
-4. **Performance Optimizations**: Implement GaussDB-specific query optimizations
-5. **Comprehensive Testing**: Add unit and integration tests with actual GaussDB instance
-6. **Monitoring Integration**: Add GaussDB-specific monitoring and metrics
+1. **System Table Research**: Verify and update system table queries based on actual GaussDB system table structure
+2. **Distributed Database Support**: Add support for GaussDB distributed features
+3. **Performance Optimizations**: Implement GaussDB-specific query optimizations
+4. **Comprehensive Testing**: Add unit and integration tests with actual GaussDB instance
+5. **Monitoring Integration**: Add GaussDB-specific monitoring and metrics
+6. **Driver Improvements**: Consider using native GaussDB driver if available, or contribute to openGauss driver for better GaussDB support
 
 ## Contributing
 
 To contribute to the GaussDB adapter:
 
-1. Review Huawei GaussDB documentation for system table differences
-2. Test with actual GaussDB instance if available
-3. Update SQL statements in `adapters/gaussdb/statements/queries.go`
-4. Add tests in `adapters/gaussdb/gaussdb_test.go`
+1. Test with actual GaussDB instance and verify system table differences
+2. Update SQL statements in `adapters/gaussdb/statements/queries.go` based on actual GaussDB system tables
+3. Add tests in `adapters/gaussdb/gaussdb_test.go`
+4. Test connection with local GaussDB instance (port 18888, user gaussdb, password Ssx@1234)
 5. Update documentation with findings
 
 ## References
 
 1. [Huawei GaussDB Documentation](https://support.huaweicloud.com/gaussdb/index.html)
 2. [GaussDB 100 Compatibility Guide](https://support.huaweicloud.com/intl/en-us/productdesc-gaussdb/gaussdb_01_0010.html)
-3. [PostgreSQL pREST Adapter](../adapters/postgres/) - Reference implementation
+3. [openGauss Go Driver](https://gitee.com/opengauss/openGauss-connector-go-pq) - PostgreSQL-compatible driver for GaussDB/openGauss
+4. [PostgreSQL pREST Adapter](../adapters/postgres/) - Reference implementation
 
 ## License
 

@@ -6,6 +6,7 @@ go 1.25.0
 // github.com/go-jose/go-jose/v4 v4.0.4
 
 require (
+	gitee.com/opengauss/openGauss-connector-go-pq v1.0.7
 	github.com/avelino/slugify v0.0.0-20180501145920-855f152bd774
 	github.com/clbanning/mxj v1.8.4
 	github.com/golang/mock v1.6.0
@@ -24,6 +25,8 @@ require (
 	github.com/urfave/negroni/v3 v3.1.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 )
+
+require github.com/tjfoc/gmsm v1.4.1 // indirect
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
