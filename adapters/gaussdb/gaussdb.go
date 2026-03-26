@@ -23,14 +23,15 @@ type GaussDB struct {
 // Load initializes the GaussDB adapter
 // Similar to postgres.Load(), but for GaussDB
 func Load() {
-	config.PrestConf.Adapter = &GaussDB{}
+	adapter := &GaussDB{}
+	config.PrestConf.Adapter = adapter
 
 	// Initialize database name in connection context
-	if GetDatabase() == "" {
-		SetDatabase(config.PrestConf.PGDatabase)
-	}
+	// Use the adapter's SetDatabase method to ensure consistency
+	adapter.SetDatabase(config.PrestConf.PGDatabase)
 
-	// Test the connection
+	// Test the connection using the adapter's GetDatabase method
+	// We need to ensure the connection uses the correct driver
 	db, err := Get()
 	if err != nil {
 		slog.Error("GaussDB connection get error", "err", err)
