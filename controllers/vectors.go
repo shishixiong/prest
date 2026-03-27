@@ -204,6 +204,21 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 	var sql string
 	indexName := fmt.Sprintf("%s_%s_vector_idx", table, req.VectorField)
 
+	// 确定操作符类后缀
+	var opSuffix string
+	switch strings.ToLower(req.DistanceMetric) {
+	case "cosine":
+		opSuffix = "cosine_ops"
+	case "l2", "euclidean":
+		opSuffix = "l2_ops"
+	case "inner", "inner_product", "ip":
+		opSuffix = "ip_ops"
+	default:
+		jsonError(w, fmt.Sprintf("Unsupported distance metric: %s. Supported: cosine, l2, inner_product", req.DistanceMetric), http.StatusBadRequest)
+		return
+	}
+	opClass := req.VectorType + "_" + opSuffix
+
 	switch req.IndexType {
 	case "hnsw":
 		if req.M <= 0 {
@@ -212,22 +227,22 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 		if req.EFConstruction <= 0 {
 			req.EFConstruction = 64
 		}
-		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING hnsw (%s %s_cosine_ops) WITH (m = %d, ef_construction = %d)`,
-			indexName, database, schema, table, req.VectorField, req.VectorType, req.M, req.EFConstruction)
+		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING hnsw (%s %s) WITH (m = %d, ef_construction = %d)`,
+			indexName, database, schema, table, req.VectorField, opClass, req.M, req.EFConstruction)
 	case "ivfflat":
 		if req.Lists <= 0 {
 			req.Lists = 100
 		}
-		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING ivfflat (%s %s_cosine_ops) WITH (lists = %d)`,
-			indexName, database, schema, table, req.VectorField, req.VectorType, req.Lists)
+		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING ivfflat (%s %s) WITH (lists = %d)`,
+			indexName, database, schema, table, req.VectorField, opClass, req.Lists)
 	default:
 		jsonError(w, fmt.Sprintf("Unsupported index type: %s. Supported: hnsw, ivfflat", req.IndexType), http.StatusBadRequest)
 		return
 	}
 
-	// 执行创建索引
+	// 执行创建索引（使用POST方法触发WriteSQL执行DDL）
 	adapter := config.PrestConf.Adapter
-	sc := adapter.Query(sql)
+	sc := adapter.ExecuteScripts("POST", sql, nil)
 	if err := sc.Err(); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to create vector index: %v", err), http.StatusBadRequest)
 		return
@@ -272,7 +287,7 @@ func DeleteVectorIndex(w http.ResponseWriter, r *http.Request) {
 		database, schema, indexName)
 
 	adapter := config.PrestConf.Adapter
-	sc := adapter.Query(sql)
+	sc := adapter.ExecuteScripts("DELETE", sql, nil)
 	if err := sc.Err(); err != nil {
 		jsonError(w, fmt.Sprintf("Failed to delete vector index: %v", err), http.StatusBadRequest)
 		return
