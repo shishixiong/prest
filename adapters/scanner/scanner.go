@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"reflect"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -105,4 +108,61 @@ func (p *PrestScanner) Bytes() (byt []byte) {
 func (p *PrestScanner) Err() (err error) {
 	err = p.Error
 	return
+}
+
+// ParseVector converts interface{} to []float64
+// Supports JSON array, string representation, or already typed slice
+func ParseVector(value interface{}) ([]float64, error) {
+	switch v := value.(type) {
+	case []float64:
+		return v, nil
+	case []interface{}:
+		result := make([]float64, len(v))
+		for i, item := range v {
+			switch num := item.(type) {
+			case float64:
+				result[i] = num
+			case float32:
+				result[i] = float64(num)
+			case int:
+				result[i] = float64(num)
+			case int64:
+				result[i] = float64(num)
+			case int32:
+				result[i] = float64(num)
+			case json.Number:
+				f, err := num.Float64()
+				if err != nil {
+					return nil, err
+				}
+				result[i] = f
+			default:
+				return nil, fmt.Errorf("unsupported vector element type: %T", item)
+			}
+		}
+		return result, nil
+	case string:
+		// Parse string representation like "[1.0,2.0,3.0]"
+		// Remove brackets and split
+		trimmed := strings.TrimSpace(v)
+		if len(trimmed) < 2 || trimmed[0] != '[' || trimmed[len(trimmed)-1] != ']' {
+			return nil, fmt.Errorf("invalid vector format: %s", v)
+		}
+		trimmed = trimmed[1 : len(trimmed)-1]
+		if trimmed == "" {
+			return []float64{}, nil
+		}
+		parts := strings.Split(trimmed, ",")
+		result := make([]float64, len(parts))
+		for i, part := range parts {
+			f, err := strconv.ParseFloat(strings.TrimSpace(part), 64)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = f
+		}
+		return result, nil
+	default:
+		return nil, fmt.Errorf("unsupported vector type: %T", value)
+	}
 }

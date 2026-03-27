@@ -6,21 +6,21 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/prest/prest/v2/config"
 	"github.com/prest/prest/v2/adapters/postgres/formatters"
+	"github.com/prest/prest/v2/config"
 
 	"github.com/gorilla/mux"
 )
 
 // VectorSearchRequest 向量搜索请求
 type VectorSearchRequest struct {
-	QueryVector    []float64               `json:"query_vector"`
-	VectorField    string                  `json:"vector_field,omitempty"`
-	DistanceMetric string                  `json:"distance_metric,omitempty"` // cosine/l2/inner_product
-	Limit          int                     `json:"limit,omitempty"`
-	Where          map[string]interface{}  `json:"where,omitempty"`
+	QueryVector     []float64              `json:"query_vector"`
+	VectorField     string                 `json:"vector_field,omitempty"`
+	DistanceMetric  string                 `json:"distance_metric,omitempty"` // cosine/l2/inner_product
+	Limit           int                    `json:"limit,omitempty"`
+	Where           map[string]interface{} `json:"where,omitempty"`
 	IncludeDistance bool                   `json:"include_distance,omitempty"`
-	Offset         int                     `json:"offset,omitempty"`
+	Offset          int                    `json:"offset,omitempty"`
 }
 
 // VectorSearchResponse 向量搜索响应项
@@ -49,11 +49,12 @@ func VectorSearch(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "query_vector is required", http.StatusBadRequest)
 		return
 	}
+	if len(req.VectorField) == 0 {
+		jsonError(w, "vector_field is required", http.StatusBadRequest)
+		return
+	}
 
 	// 设置默认值
-	if req.VectorField == "" {
-		req.VectorField = "vector" // 默认向量字段名
-	}
 	if req.DistanceMetric == "" {
 		req.DistanceMetric = "cosine" // 默认使用余弦距离
 	}
@@ -174,12 +175,13 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 	table := vars["table"]
 
 	type IndexRequest struct {
+		VectorType     string `json:"vector_type,omitempty"` //vector/bit/sparsevec
 		VectorField    string `json:"vector_field,omitempty"`
-		IndexType      string `json:"index_type"`      // hnsw/ivfflat
-		DistanceMetric string `json:"distance_metric"` // cosine/l2/inner_product
-		M              int    `json:"m,omitempty"`     // HNSW参数
+		IndexType      string `json:"index_type"`                // hnsw/ivfflat
+		DistanceMetric string `json:"distance_metric"`           // cosine/l2/inner_product
+		M              int    `json:"m,omitempty"`               // HNSW参数
 		EFConstruction int    `json:"ef_construction,omitempty"` // HNSW参数
-		Lists          int    `json:"lists,omitempty"` // IVFFlat参数
+		Lists          int    `json:"lists,omitempty"`           // IVFFlat参数
 	}
 
 	var req IndexRequest
@@ -188,8 +190,8 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.VectorField == "" {
-		req.VectorField = "vector"
+	if req.VectorType == "" {
+		req.VectorType = "vector"
 	}
 	if req.IndexType == "" {
 		req.IndexType = "hnsw"
@@ -211,13 +213,13 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 			req.EFConstruction = 64
 		}
 		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING hnsw (%s %s_cosine_ops) WITH (m = %d, ef_construction = %d)`,
-			indexName, database, schema, table, req.VectorField, req.VectorField, req.M, req.EFConstruction)
+			indexName, database, schema, table, req.VectorField, req.VectorType, req.M, req.EFConstruction)
 	case "ivfflat":
 		if req.Lists <= 0 {
 			req.Lists = 100
 		}
 		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING ivfflat (%s %s_cosine_ops) WITH (lists = %d)`,
-			indexName, database, schema, table, req.VectorField, req.VectorField, req.Lists)
+			indexName, database, schema, table, req.VectorField, req.VectorType, req.Lists)
 	default:
 		jsonError(w, fmt.Sprintf("Unsupported index type: %s. Supported: hnsw, ivfflat", req.IndexType), http.StatusBadRequest)
 		return
@@ -233,7 +235,7 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": fmt.Sprintf("Vector index %s created successfully", indexName),
+		"message":    fmt.Sprintf("Vector index %s created successfully", indexName),
 		"index_name": indexName,
 	})
 }
@@ -286,4 +288,3 @@ func DeleteVectorIndex(w http.ResponseWriter, r *http.Request) {
 func VectorBatchSearch(w http.ResponseWriter, r *http.Request) {
 	jsonError(w, "Batch vector search not yet implemented", http.StatusNotImplemented)
 }
-

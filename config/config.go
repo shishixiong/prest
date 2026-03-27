@@ -113,6 +113,7 @@ type Prest struct {
 	HTTPSCert            string
 	HTTPSKey             string
 	Cache                cache.Config
+	Vector               VectorConfig
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
 	Logger               *slog.Logger
@@ -255,6 +256,9 @@ func getPrestConfFile(prestConf string) string {
 // Parse pREST config
 // todo: split config onto methods to simplify this
 func Parse(cfg *Prest) {
+	// Set default vector configuration
+	cfg.Vector = DefaultVectorConfig()
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -296,6 +300,33 @@ func Parse(cfg *Prest) {
 	cfg.PluginPath = viper.GetString("pluginpath")
 
 	loadCacheConfig(cfg)
+
+	// Vector configuration
+	cfg.Vector.Enabled = viper.GetBool("vector.enabled")
+	cfg.Vector.DefaultDistance = viper.GetString("vector.default_distance")
+	if cfg.Vector.DefaultDistance == "" {
+		cfg.Vector.DefaultDistance = "cosine"
+	}
+	cfg.Vector.DefaultDimensions = viper.GetInt("vector.default_dimensions")
+	if cfg.Vector.DefaultDimensions == 0 {
+		cfg.Vector.DefaultDimensions = 768
+	}
+	cfg.Vector.IndexType = viper.GetString("vector.index_type")
+	if cfg.Vector.IndexType == "" {
+		cfg.Vector.IndexType = "hnsw"
+	}
+	cfg.Vector.MaxConnections = viper.GetInt("vector.max_connections")
+	if cfg.Vector.MaxConnections == 0 {
+		cfg.Vector.MaxConnections = 16
+	}
+	cfg.Vector.EFConstruction = viper.GetInt("vector.ef_construction")
+	if cfg.Vector.EFConstruction == 0 {
+		cfg.Vector.EFConstruction = 64
+	}
+	cfg.Vector.DefaultVectorField = viper.GetString("vector.default_vector_field")
+	if cfg.Vector.DefaultVectorField == "" {
+		cfg.Vector.DefaultVectorField = "vector"
+	}
 
 	cfg.ExposeConf.Enabled = viper.GetBool("expose.enabled")
 	cfg.ExposeConf.TableListing = viper.GetBool("expose.tables")

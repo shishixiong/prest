@@ -47,3 +47,21 @@ INSERT INTO prest_users(username, password) VALUES('test@postgres.rest', 'e10adc
 CREATE TABLE table_to_view(id serial, name text, celphone text);
 INSERT INTO table_to_view (name, celphone) VALUES ('gopher', '8888888');
 CREATE VIEW view_test AS SELECT name AS player from table_to_view;
+
+-- Vector test tables
+CREATE TABLE test_vector(
+  id serial PRIMARY KEY,
+  title text,
+  content text,
+  embedding vector(3),  -- 3-dimensional vector for testing
+  category text,
+  created_at timestamp DEFAULT now()
+);
+
+-- Test data for vector search
+INSERT INTO test_vector (title, content, embedding, category) VALUES
+  ('Document 1', 'Content about machine learning', '[0.1, 0.2, 0.3]', 'AI'),
+  ('Document 2', 'Content about databases', '[0.4, 0.5, 0.6]', 'Database'),
+  ('Document 3', 'Content about programming', '[0.7, 0.8, 0.9]', 'Programming'),
+  ('Document 4', 'More machine learning content', '[0.15, 0.25, 0.35]', 'AI'),
+  ('Document 5', 'Advanced database topics', '[0.45, 0.55, 0.65]', 'Database');

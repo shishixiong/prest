@@ -45,6 +45,11 @@ func GetRouter() *mux.Router {
 	crudRoutes.HandleFunc("/batch/{database}/{schema}/{table}", controllers.BatchInsertInTables).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.DeleteFromTable).Methods("DELETE")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}", controllers.UpdateTable).Methods("PUT", "PATCH")
+	// Vector endpoints
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/search", controllers.VectorSearch).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/batch_search", controllers.VectorBatchSearch).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/index", controllers.CreateVectorIndex).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/index", controllers.DeleteVectorIndex).Methods("DELETE")
 	router.PathPrefix("/").Handler(negroni.New(
 		middlewares.AuthMiddleware(config.PrestConf.JWTAlgo),
 		middlewares.AccessControl(),

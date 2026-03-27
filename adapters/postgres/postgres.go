@@ -208,7 +208,7 @@ func chkInvalidIdentifier(identifier ...string) bool {
 // WhereByRequest create interface for queries + where
 func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID int) (whereSyntax string, values []interface{}, err error) {
 	whereKey := []string{}
-	whereValues := []string{}
+	whereValues := []interface{}{}
 	var value, op string
 
 	pid := initialPlaceholderID
@@ -298,6 +298,18 @@ func (adapter *Postgres) WhereByRequest(r *http.Request, initialPlaceholderID in
 					pid++
 				case "IS NULL", "IS NOT NULL", "IS TRUE", "IS NOT TRUE", "IS FALSE", "IS NOT FALSE":
 					whereKey = append(whereKey, fmt.Sprintf(`%s %s`, quotedKey, op))
+				case "<->", "<=>", "<#>":
+					// Vector distance operators
+					whereKey = append(whereKey, fmt.Sprintf(`%s %s $%d`, quotedKey, op, pid))
+					// Try to format vector value
+					formattedValue, err := formatVectorValue(value)
+					if err != nil {
+						// If formatting fails, use original value
+						whereValues = append(whereValues, value)
+					} else {
+						whereValues = append(whereValues, formattedValue)
+					}
+					pid++
 				default: // "=", "!=", ">", ">=", "<", "<="
 					whereKey = append(whereKey, fmt.Sprintf(`%s %s $%d`, quotedKey, op, pid))
 					whereValues = append(whereValues, value)
@@ -369,6 +381,85 @@ func sliceToJSONList(ifaceSlice interface{}) (returnValue string, err error) {
 	return
 }
 
+// formatVectorValue attempts to format a value as PostgreSQL vector literal
+func formatVectorValue(value interface{}) (interface{}, error) {
+	switch v := value.(type) {
+	case []float64, []float32:
+		return formatters.FormatVector(v), nil
+	case string:
+		// Check if it's already in vector format
+		trimmed := strings.TrimSpace(v)
+		if len(trimmed) > 0 && trimmed[0] == '[' && trimmed[len(trimmed)-1] == ']' {
+			// Already in vector format
+			return v, nil
+		}
+		// Try to parse as JSON array
+		var arr []interface{}
+		if err := json.Unmarshal([]byte(v), &arr); err == nil {
+			// Convert to float slice
+			floatArr := make([]float64, len(arr))
+			for i, item := range arr {
+				switch num := item.(type) {
+				case float64:
+					floatArr[i] = num
+				case float32:
+					floatArr[i] = float64(num)
+				case int:
+					floatArr[i] = float64(num)
+				case int64:
+					floatArr[i] = float64(num)
+				case json.Number:
+					f, err := num.Float64()
+					if err != nil {
+						return v, nil // Return original if can't convert
+					}
+					floatArr[i] = f
+				default:
+					return v, nil // Return original
+				}
+			}
+			return formatters.FormatVector(floatArr), nil
+		}
+		return v, nil
+	default:
+		// Try reflection for slices
+		rv := reflect.ValueOf(value)
+		if rv.Kind() == reflect.Slice {
+			// Convert slice to []float64 if possible
+			length := rv.Len()
+			floatArr := make([]float64, length)
+			allFloats := true
+			for i := 0; i < length; i++ {
+				elem := rv.Index(i).Interface()
+				switch num := elem.(type) {
+				case float64:
+					floatArr[i] = num
+				case float32:
+					floatArr[i] = float64(num)
+				case int:
+					floatArr[i] = float64(num)
+				case int64:
+					floatArr[i] = float64(num)
+				case json.Number:
+					f, err := num.Float64()
+					if err != nil {
+						allFloats = false
+						break
+					}
+					floatArr[i] = f
+				default:
+					allFloats = false
+					break
+				}
+			}
+			if allFloats {
+				return formatters.FormatVector(floatArr), nil
+			}
+		}
+		return value, nil
+	}
+}
+
 // SetByRequest create a set clause for SQL
 func (adapter *Postgres) SetByRequest(r *http.Request, initialPlaceholderID int) (setSyntax string, values []interface{}, err error) {
 	body := make(map[string]interface{})
@@ -391,23 +482,48 @@ func (adapter *Postgres) SetByRequest(r *http.Request, initialPlaceholderID int)
 		key = fmt.Sprintf(`"%s"`, strings.Join(keys, `"."`))
 		fields = append(fields, fmt.Sprintf(`%s=$%d`, key, initialPlaceholderID))
 
-		switch reflect.ValueOf(value).Kind() {
-		case reflect.Interface:
-			values = append(values, formatters.FormatArray(value))
-		case reflect.Map:
-			jsonData, err := json.Marshal(value)
-			if err != nil {
-				slog.Error("error details", "err", err)
+		// Check for vector types first
+		switch v := value.(type) {
+		case []float64, []float32:
+			values = append(values, formatters.FormatVector(v))
+		case []interface{}:
+			// JSON数组可能是普通数组或向量数组
+			// 先尝试格式化为向量
+			formatted := formatters.FormatVector(v)
+			if formatted != "" {
+				// 是有效的数值数组（向量）
+				values = append(values, formatted)
+			} else {
+				// 是普通数组（字符串、混合类型等）
+				// 调用sliceToJSONList转换为JSON数组格式
+				jsonList, err := sliceToJSONList(v)
+				if err != nil {
+					// 如果失败，回退到FormatArray
+					values = append(values, formatters.FormatArray(v))
+				} else {
+					values = append(values, jsonList)
+				}
 			}
-			values = append(values, string(jsonData))
-		case reflect.Slice:
-			value, err = sliceToJSONList(value)
-			if err != nil {
-				slog.Error("error details", "err", err)
-			}
-			values = append(values, value)
 		default:
-			values = append(values, value)
+			// Use reflection for other types
+			switch reflect.ValueOf(value).Kind() {
+			case reflect.Interface:
+				values = append(values, formatters.FormatArray(value))
+			case reflect.Map:
+				jsonData, err := json.Marshal(value)
+				if err != nil {
+					slog.Error("error details", "err", err)
+				}
+				values = append(values, string(jsonData))
+			case reflect.Slice:
+				value, err = sliceToJSONList(value)
+				if err != nil {
+					slog.Error("error details", "err", err)
+				}
+				values = append(values, value)
+			default:
+				values = append(values, value)
+			}
 		}
 		initialPlaceholderID++
 	}
@@ -448,9 +564,20 @@ func (adapter *Postgres) operationValues(recordSet []map[string]interface{}, rec
 				return
 			}
 			value := record[key]
-			switch value.(type) {
+			switch v := value.(type) {
 			case []interface{}:
-				values = append(values, formatters.FormatArray(value))
+				// JSON数组可能是普通数组或向量数组
+				// 先尝试格式化为向量
+				formatted := formatters.FormatVector(v)
+				if formatted != "" {
+					// 是有效的数值数组（向量）
+					values = append(values, formatted)
+				} else {
+					// 是普通数组（字符串、混合类型等）
+					values = append(values, formatters.FormatArray(v))
+				}
+			case []float64, []float32:
+				values = append(values, formatters.FormatVector(value))
 			default:
 				values = append(values, value)
 			}
@@ -504,9 +631,20 @@ func (adapter *Postgres) ParseInsertRequest(r *http.Request) (colsName string, c
 		}
 		fields = append(fields, fmt.Sprintf(`"%s"`, key))
 
-		switch value.(type) {
+		switch v := value.(type) {
+		case []float64, []float32:
+			values = append(values, formatters.FormatVector(v))
 		case []interface{}:
-			values = append(values, formatters.FormatArray(value))
+			// JSON数组可能是普通数组或向量数组
+			// 先尝试格式化为向量
+			formatted := formatters.FormatVector(v)
+			if formatted != "" {
+				// 是有效的数值数组（向量）
+				values = append(values, formatted)
+			} else {
+				// 是普通数组（字符串、混合类型等）
+				values = append(values, formatters.FormatArray(v))
+			}
 		default:
 			values = append(values, value)
 		}
@@ -1342,6 +1480,13 @@ func GetQueryOperator(op string) (string, error) {
 		return "~", nil
 	case "ltreematchtxt":
 		return "@", nil
+	// vector distance operators
+	case "vector_l2", "l2":
+		return "<->", nil
+	case "vector_cosine", "cosine":
+		return "<=>", nil
+	case "vector_inner", "inner":
+		return "<#>", nil
 	}
 
 	return "", ErrInvalidOperator
