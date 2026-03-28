@@ -45,6 +45,11 @@ TEST_JSON_TABLE="test_json_data"
 TEST_SCHEMA="public"
 TEST_DATABASE="prest"
 
+# 向量测试表名
+TEST_VECTOR_TABLE="test_vector_data"
+VECTOR_FIELD="embedding"
+VECTOR_DIMENSION=3
+
 # 临时文件
 RESPONSE_FILE=$(mktemp)
 HEADERS_FILE=$(mktemp)
@@ -166,6 +171,20 @@ check_valid_json() {
     if jq empty "$RESPONSE_FILE" 2>/dev/null; then
         return 0
     else
+        return 1
+    fi
+}
+
+# 检查向量表是否存在和vector扩展支持
+check_vector_support() {
+    print_header "检查向量功能支持"
+
+    # 检查向量表是否存在
+    if curl -s -f "$BASE_URL/show/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE" --connect-timeout 5 &> /dev/null; then
+        print_success "向量测试表 $TEST_VECTOR_TABLE 存在"
+        return 0
+    else
+        print_skip "向量测试表 $TEST_VECTOR_TABLE 不存在，跳过向量功能测试"
         return 1
     fi
 }
@@ -393,6 +412,191 @@ test_special_cases() {
     send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_TABLE?email=\$eq.bignumber@example.com" null 200 "清理大数字数据"
 }
 
+# 向量CRUD操作测试
+test_vector_crud_operations() {
+    print_header "7. 向量CRUD操作测试"
+
+    local test_vector_data='{
+        "title": "向量测试文档",
+        "content": "这是一个向量测试文档",
+        "embedding": [0.3, 0.4, 0.5],
+        "category": "Test",
+        "metadata": "{\"tags\": [\"test\", \"vector\"]}",
+        "is_active": true
+    }'
+
+    local update_data='{
+        "embedding": [0.6, 0.7, 0.8],
+        "title": "更新后的向量文档"
+    }'
+
+    # 7.1 插入向量数据
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE" "$test_vector_data" 201 "插入向量测试数据"
+
+    # 7.2 查询向量数据
+    send_request "GET" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE?title=\$eq.向量测试文档" null 200 "查询插入的向量数据"
+
+    # 7.3 更新向量数据
+    send_request "PATCH" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE?title=\$eq.向量测试文档" "$update_data" 200 "更新向量数据"
+
+    # 7.4 删除向量数据
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE?title=\$eq.更新后的向量文档" null 200 "删除向量测试数据"
+}
+
+# 向量相似性搜索测试
+test_vector_search() {
+    print_header "8. 向量相似性搜索测试"
+
+    # 8.1 余弦距离搜索
+    local cosine_search_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "cosine",
+        "limit": 3,
+        "vector_field": "embedding",
+        "include_distance": true
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$cosine_search_data" 200 "余弦距离向量搜索"
+
+    # 8.2 欧氏距离搜索
+    local l2_search_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "l2",
+        "vector_field": "embedding",
+        "limit": 2
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$l2_search_data" 200 "欧氏距离向量搜索"
+
+    # 8.3 内积距离搜索
+    local inner_search_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "inner",
+        "vector_field": "embedding",
+        "limit": 2
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$inner_search_data" 200 "内积距离向量搜索"
+}
+
+# 混合查询测试（向量搜索+传统过滤条件）
+test_hybrid_search() {
+    print_header "9. 混合查询测试（向量+过滤条件）"
+
+    # 9.1 向量搜索 + 类别过滤
+    local category_filter_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "cosine",
+        "vector_field": "embedding",
+        "limit": 5,
+        "where": {
+            "category": "AI"
+        }
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$category_filter_data" 200 "向量搜索+类别过滤"
+
+    # 9.2 向量搜索 + 多条件过滤
+    local multi_filter_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "cosine",
+        "vector_field": "embedding",
+        "limit": 5,
+        "where": {
+            "category": "AI",
+            "is_active": true
+        }
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$multi_filter_data" 200 "向量搜索+多条件过滤"
+
+    # 9.3 向量搜索 + JSON字段过滤
+    local json_filter_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "cosine",
+        "vector_field": "embedding",
+        "limit": 5,
+        "where": {
+            "metadata->>difficulty": "advanced"
+        }
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$json_filter_data" 200 "向量搜索+JSON字段过滤"
+}
+
+# 向量索引操作测试
+test_vector_index_operations() {
+    print_header "10. 向量索引操作测试"
+
+    # 10.1 创建HNSW索引
+    local hnsw_index_data='{
+        "index_type": "hnsw",
+        "vector_field": "embedding",
+        "distance_metric": "cosine",
+        "m": 16,
+        "ef_construction": 64
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$hnsw_index_data" 200 "创建HNSW向量索引"
+
+    # 10.2 删除向量索引
+    local delete_index_data='{
+        "vector_field": "embedding"
+    }'
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$delete_index_data" 200 "删除向量索引"
+
+    # 10.3 创建IVFFlat索引
+    local ivfflat_index_data='{
+        "index_type": "ivfflat",
+        "vector_field": "embedding",
+        "distance_metric": "cosine",
+        "lists": 100
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$ivfflat_index_data" 200 "创建IVFFlat向量索引"
+
+    # 10.4 清理：删除IVFFlat索引
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$delete_index_data" 200 "清理IVFFlat索引"
+}
+
+# 向量错误场景测试
+test_vector_error_scenarios() {
+    print_header "11. 向量错误场景测试"
+
+    # 11.1 无效向量格式
+    local invalid_vector_data='{
+        "query_vector": [0.1, "not-a-number", 0.3],
+        "distance_metric": "cosine"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$invalid_vector_data" 400 "无效向量格式"
+
+    # 11.2 无效距离度量
+    local invalid_metric_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "invalid_metric"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$invalid_metric_data" 400 "无效距离度量"
+
+    # 11.3 缺失查询向量
+    local missing_vector_data='{
+        "distance_metric": "cosine"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$missing_vector_data" 400 "缺失查询向量"
+
+    # 11.4 不存在的向量字段
+    local invalid_field_data='{
+        "query_vector": [0.1, 0.2, 0.3],
+        "distance_metric": "cosine",
+        "vector_field": "nonexistent_field"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$invalid_field_data" 400 "不存在的向量字段"
+}
+
+# 向量功能测试主函数
+test_vector_features() {
+    if ! check_vector_support; then
+        return 0
+    fi
+
+    test_vector_crud_operations
+    test_vector_search
+    test_hybrid_search
+    test_vector_index_operations
+    test_vector_error_scenarios
+}
+
 # ============================================
 # 主函数
 # ============================================
@@ -406,7 +610,7 @@ main() {
     echo "服务地址: $BASE_URL"
     echo "测试数据库: $TEST_DATABASE"
     echo "测试模式: $TEST_SCHEMA"
-    echo "测试表: $TEST_TABLE, $TEST_JSON_TABLE"
+    echo "测试表: $TEST_TABLE, $TEST_JSON_TABLE, $TEST_VECTOR_TABLE"
     echo ""
 
     # 检查依赖
@@ -440,6 +644,9 @@ main() {
     test_json_features
     test_error_handling
     test_special_cases
+
+    # 运行向量测试（如果向量表存在且支持）
+    test_vector_features
 
     # 打印总结
     print_header "测试总结"
