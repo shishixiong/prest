@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/prest/prest/v2/adapters/postgres/formatters"
@@ -90,19 +91,75 @@ func VectorSearch(w http.ResponseWriter, r *http.Request) {
 	// 处理WHERE条件
 	whereValues := []interface{}{vectorStr} // $1 是向量值
 	if req.Where != nil && len(req.Where) > 0 {
-		// 将map转换为URL查询参数，以便使用适配器的WhereByRequest
-		// 创建虚拟请求
-		// 注意：这里简化处理，实际应该使用适配器方法
-		whereParts := []string{}
-		i := 2 // 参数索引从2开始（$1是查询向量）
+		// 创建虚拟HTTP请求以便使用适配器的WhereByRequest方法
+		// 将map转换为URL查询参数格式
+		urlValues := make(url.Values)
 		for field, value := range req.Where {
-			// 简单的相等条件
-			whereParts = append(whereParts, fmt.Sprintf(`"%s" = $%d`, field, i))
-			whereValues = append(whereValues, value)
-			i++
+			// 跳过系统参数（以下划线开头）
+			if strings.HasPrefix(field, "_") {
+				continue
+			}
+
+			// 根据值的类型构建查询参数值
+			var paramValue string
+			switch v := value.(type) {
+			case string:
+				// 如果字符串以$开头，假设已经包含操作符（如$gt.25）
+				// 否则添加$eq.前缀
+				if strings.HasPrefix(v, "$") {
+					paramValue = v
+				} else {
+					paramValue = "$eq." + v
+				}
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+				paramValue = fmt.Sprintf("$eq.%v", v)
+			case float32, float64:
+				paramValue = fmt.Sprintf("$eq.%v", v)
+			case bool:
+				if v {
+					paramValue = "$true"
+				} else {
+					paramValue = "$false"
+				}
+			case nil:
+				paramValue = "$null"
+			case []interface{}:
+				// 数组用于IN操作符
+				// 将数组元素转换为字符串并用逗号连接
+				strValues := make([]string, len(v))
+				for i, elem := range v {
+					strValues[i] = fmt.Sprintf("%v", elem)
+				}
+				paramValue = "$in." + strings.Join(strValues, ",")
+			default:
+				// 其他类型尝试转换为字符串
+				str := fmt.Sprintf("%v", v)
+				if strings.HasPrefix(str, "$") {
+					paramValue = str
+				} else {
+					paramValue = "$eq." + str
+				}
+			}
+			urlValues.Set(field, paramValue)
 		}
-		if len(whereParts) > 0 {
-			sql += " WHERE " + strings.Join(whereParts, " AND ")
+
+		// 创建虚拟请求
+		dummyReq := &http.Request{
+			URL: &url.URL{
+				RawQuery: urlValues.Encode(),
+			},
+		}
+
+		// 调用适配器的WhereByRequest方法，参数索引从2开始（$1是向量值）
+		whereSyntax, additionalValues, err := adapter.WhereByRequest(dummyReq, 2)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("Invalid WHERE condition: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		if whereSyntax != "" {
+			sql += " WHERE " + whereSyntax
+			whereValues = append(whereValues, additionalValues...)
 		}
 	}
 

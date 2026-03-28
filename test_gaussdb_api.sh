@@ -512,7 +512,7 @@ test_hybrid_search() {
         "vector_field": "embedding",
         "limit": 5,
         "where": {
-            "metadata->>difficulty": "advanced"
+            "metadata->>difficulty:jsonb": "advanced"
         }
     }'
     send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$json_filter_data" 200 "向量搜索+JSON字段过滤"
