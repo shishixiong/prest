@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-pREST (PostgreSQL REST) is a Go-based RESTful API server that provides instant, realtime, and high-performance API endpoints on top of PostgreSQL databases. It automatically generates CRUD endpoints, supports authentication, authorization, custom queries, plugins, and middleware.
+pREST (PostgreSQL REST) is a Go-based RESTful API server that provides instant, realtime, and high-performance API endpoints on top of PostgreSQL and GaussDB databases. It automatically generates CRUD endpoints, supports authentication, authorization, custom queries, plugins, middleware, and vector similarity search.
 
 ## Development Environment
 
@@ -12,7 +12,7 @@ pREST (PostgreSQL REST) is a Go-based RESTful API server that provides instant, 
 - **Module name**: `github.com/prest/prest/v2`
 - **Entry point**: `cmd/prestd/main.go`
 - **Configuration**: Via environment variables or `prest.toml` file
-- **Database**: PostgreSQL 9.5+ (tested with PostgreSQL 16 in CI)
+- **Database**: PostgreSQL 9.5+ (tested with PostgreSQL 16 in CI), GaussDB 100+ (beta support)
 - **Dev Container**: VS Code devcontainer configuration available (`.devcontainer/devcontainer.json`) with pre-configured extensions and settings
 
 ## Common Commands
@@ -130,6 +130,7 @@ go build -o ./lib/hello.so -buildmode=plugin ./lib/src/hello.go
 2. **Adapters** (`adapters/`):
    - Abstract database operations via `adapters.Adapter` interface
    - PostgreSQL implementation in `adapters/postgres/`
+   - GaussDB implementation in `adapters/gaussdb/` (extends PostgreSQL adapter for Huawei GaussDB compatibility)
    - Handles SQL generation, query building, and permissions
    - Key responsibilities: SQL generation, query building, permissions checking
 
@@ -141,6 +142,7 @@ go build -o ./lib/hello.so -buildmode=plugin ./lib/src/hello.go
    - `auth.go`: Authentication endpoints
    - `sql.go`: Custom SQL execution
    - `healthcheck.go`: Health endpoint
+   - `vectors.go`: Vector similarity search operations (create/delete vector indexes, vector search)
 
 4. **Router** (`router/`):
    - Defines all API routes in `router.go`
@@ -151,6 +153,9 @@ go build -o ./lib/hello.so -buildmode=plugin ./lib/src/hello.go
      - `GET /_QUERIES/{queriesLocation}/{script}` (custom queries)
      - `GET /_PLUGIN/{file}/{func}` (plugin execution, non-Windows)
      - `GET /_health` (health check)
+     - `POST /{database}/{schema}/{table}/_vector/search` (vector similarity search)
+     - `POST /{database}/{schema}/{table}/_vector/index` (create vector index)
+     - `DELETE /{database}/{schema}/{table}/_vector/index` (delete vector index)
 
 5. **Middlewares** (`middlewares/`):
    - `AuthMiddleware`: JWT authentication
@@ -175,7 +180,7 @@ go build -o ./lib/hello.so -buildmode=plugin ./lib/src/hello.go
 
 ### Key Design Patterns
 
-- **Adapter Pattern**: Database abstraction allowing potential support for other databases (currently only PostgreSQL)
+- **Adapter Pattern**: Database abstraction allowing support for multiple databases (PostgreSQL and GaussDB)
 - **Middleware Chain**: All CRUD requests pass through authentication, access control, exposure, and cache middlewares
 - **Configuration Centralization**: Single `Prest` struct holds all runtime configuration
 - **Plugin System**: Extensible via Go plugins for custom middleware and handlers
@@ -196,6 +201,7 @@ Key configuration sections:
 - `cache`: Caching settings
 - `access`: Table and field-level permissions
 - `expose`: Control database/schema/table listing exposure
+- `vector`: Vector search configuration (enabled, default distance metric, dimensions, index type)
 
 ## Testing Strategy
 
@@ -204,6 +210,7 @@ Key configuration sections:
 - Test setup: Creates databases, loads schema (`testdata/schema.sql`), runs migrations
 - Plugin tests: Builds plugin `.so` file from `lib/src/hello.go`
 - Use `testdata/runtest.sh` as the main test script
+- GaussDB tests: Separate test scripts available (`test_gaussdb_api.sh`), requires manual GaussDB instance setup
 
 ## Release Process
 
@@ -218,3 +225,5 @@ Key configuration sections:
 - Public Mode: Running without access restriction shows warning
 - Debug Mode: Enabled via `debug` config or `PREST_DEBUG` env var
 - Single vs Multi Database: Configured via `pg.single` (defaults to single database mode)
+- GaussDB Support: Beta support for Huawei GaussDB database (configure via `database.type = "gaussdb"` or `PREST_DATABASE_TYPE=gaussdb`)
+- Vector Search: Vector similarity search support for PostgreSQL (configure via `vector.enabled = true` or `PREST_VECTOR_ENABLED=true`)

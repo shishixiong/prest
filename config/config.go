@@ -114,6 +114,7 @@ type Prest struct {
 	HTTPSKey             string
 	Cache                cache.Config
 	Vector               VectorConfig
+	Graph                GraphConfig
 	PluginPath           string
 	PluginMiddlewareList []PluginMiddleware
 	Logger               *slog.Logger
@@ -258,6 +259,8 @@ func getPrestConfFile(prestConf string) string {
 func Parse(cfg *Prest) {
 	// Set default vector configuration
 	cfg.Vector = DefaultVectorConfig()
+	// Set default graph configuration
+	cfg.Graph = DefaultGraphConfig()
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -326,6 +329,46 @@ func Parse(cfg *Prest) {
 	cfg.Vector.DefaultVectorField = viper.GetString("vector.default_vector_field")
 	if cfg.Vector.DefaultVectorField == "" {
 		cfg.Vector.DefaultVectorField = "vector"
+	}
+
+	// Graph configuration
+	cfg.Graph.Enabled = viper.GetBool("graph.enabled")
+	cfg.Graph.DefaultGraphType = viper.GetString("graph.default_graph_type")
+	if cfg.Graph.DefaultGraphType == "" {
+		cfg.Graph.DefaultGraphType = "property"
+	}
+	cfg.Graph.DefaultVertexLabel = viper.GetString("graph.default_vertex_label")
+	if cfg.Graph.DefaultVertexLabel == "" {
+		cfg.Graph.DefaultVertexLabel = "vertex"
+	}
+	cfg.Graph.DefaultEdgeLabel = viper.GetString("graph.default_edge_label")
+	if cfg.Graph.DefaultEdgeLabel == "" {
+		cfg.Graph.DefaultEdgeLabel = "edge"
+	}
+	cfg.Graph.MaxTraversalDepth = viper.GetInt("graph.max_traversal_depth")
+	if cfg.Graph.MaxTraversalDepth == 0 {
+		cfg.Graph.MaxTraversalDepth = 10
+	}
+	cfg.Graph.MaxResults = viper.GetInt("graph.max_results")
+	if cfg.Graph.MaxResults == 0 {
+		cfg.Graph.MaxResults = 1000
+	}
+	cfg.Graph.EnableGraphIndices = viper.GetBool("graph.enable_graph_indices")
+	cfg.Graph.DefaultVertexTable = viper.GetString("graph.default_vertex_table")
+	if cfg.Graph.DefaultVertexTable == "" {
+		cfg.Graph.DefaultVertexTable = "_graph_vertices"
+	}
+	cfg.Graph.DefaultEdgeTable = viper.GetString("graph.default_edge_table")
+	if cfg.Graph.DefaultEdgeTable == "" {
+		cfg.Graph.DefaultEdgeTable = "_graph_edges"
+	}
+	cfg.Graph.QueryTimeout = viper.GetInt("graph.query_timeout")
+	if cfg.Graph.QueryTimeout == 0 {
+		cfg.Graph.QueryTimeout = 30
+	}
+	cfg.Graph.BatchSize = viper.GetInt("graph.batch_size")
+	if cfg.Graph.BatchSize == 0 {
+		cfg.Graph.BatchSize = 100
 	}
 
 	cfg.ExposeConf.Enabled = viper.GetBool("expose.enabled")

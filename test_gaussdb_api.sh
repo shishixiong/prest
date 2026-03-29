@@ -50,6 +50,9 @@ TEST_VECTOR_TABLE="test_vector_data"
 VECTOR_FIELD="embedding"
 VECTOR_DIMENSION=3
 
+# Graph测试配置
+TEST_GRAPH_NAME="test_graph_api"
+
 # 临时文件
 RESPONSE_FILE=$(mktemp)
 HEADERS_FILE=$(mktemp)
@@ -598,6 +601,188 @@ test_vector_features() {
 }
 
 # ============================================
+# Graph功能测试
+# ============================================
+
+# Graph CRUD操作测试
+test_graph_crud_operations() {
+    print_header "12. Graph CRUD操作测试"
+
+    # 12.1 创建Graph (property类型)
+    local create_graph_data="{
+        \"graph_name\": \"${TEST_GRAPH_NAME}_property\",
+        \"graph_type\": \"property\"
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_GRAPH_NAME/_graph/create" "$create_graph_data" 200 "创建Property Graph"
+
+    # 12.2 创建Graph (directed类型)
+    local create_directed_graph_data="{
+        \"graph_name\": \"${TEST_GRAPH_NAME}_directed\",
+        \"graph_type\": \"directed\"
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_GRAPH_NAME/_graph/create" "$create_directed_graph_data" 200 "创建Directed Graph"
+
+    # 12.3 添加顶点到Property Graph
+    local add_vertices_data="{
+        \"vertices\": [
+            {\"id\": 1, \"label\": \"user\", \"properties\": {\"name\": \"Alice\", \"age\": 30}},
+            {\"id\": 2, \"label\": \"user\", \"properties\": {\"name\": \"Bob\", \"age\": 25}},
+            {\"id\": 3, \"label\": \"user\", \"properties\": {\"name\": \"Charlie\", \"age\": 35}},
+            {\"id\": 4, \"label\": \"product\", \"properties\": {\"name\": \"Laptop\", \"price\": 999.99}},
+            {\"id\": 5, \"label\": \"product\", \"properties\": {\"name\": \"Mouse\", \"price\": 29.99}}
+        ]
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/vertices" "$add_vertices_data" 200 "添加顶点到Property Graph"
+
+    # 12.4 添加边到Property Graph
+    local add_edges_data="{
+        \"edges\": [
+            {\"id\": 1, \"from\": 1, \"to\": 2, \"label\": \"knows\", \"properties\": {\"since\": \"2020\"}},
+            {\"id\": 2, \"from\": 1, \"to\": 3, \"label\": \"knows\", \"properties\": {\"since\": \"2019\"}},
+            {\"id\": 3, \"from\": 2, \"to\": 4, \"label\": \"bought\", \"properties\": {\"date\": \"2024-01-15\"}},
+            {\"id\": 4, \"from\": 3, \"to\": 5, \"label\": \"bought\", \"properties\": {\"date\": \"2024-02-20\"}},
+            {\"id\": 5, \"from\": 1, \"to\": 4, \"label\": \"viewed\", \"properties\": {\"date\": \"2024-03-01\"}}
+        ]
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/edges" "$add_edges_data" 200 "添加边到Property Graph"
+
+    # 12.5 添加顶点到Directed Graph
+    local add_vertices_directed_data="{
+        \"vertices\": [
+            {\"id\": 1, \"label\": \"nodeA\", \"properties\": {\"value\": 100}},
+            {\"id\": 2, \"label\": \"nodeB\", \"properties\": {\"value\": 200}},
+            {\"id\": 3, \"label\": \"nodeC\", \"properties\": {\"value\": 300}}
+        ]
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_directed/_graph/vertices" "$add_vertices_directed_data" 200 "添加顶点到Directed Graph"
+
+    # 12.6 添加边到Directed Graph
+    local add_edges_directed_data="{
+        \"edges\": [
+            {\"id\": 1, \"from\": 1, \"to\": 2, \"label\": \"depends_on\", \"properties\": {\"weight\": 5}},
+            {\"id\": 2, \"from\": 2, \"to\": 3, \"label\": \"depends_on\", \"properties\": {\"weight\": 10}}
+        ]
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_directed/_graph/edges" "$add_edges_directed_data" 200 "添加边到Directed Graph"
+}
+
+# Graph查询测试
+test_graph_queries() {
+    print_header "13. Graph查询测试"
+
+    # 13.1 查询所有顶点 (match query)
+    local match_query_data='{
+        "query_type": "match"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$match_query_data" 200 "Match查询-获取所有顶点"
+
+    # 13.2 遍历查询 (traverse from vertex 1)
+    local traverse_query_data='{
+        "query_type": "traverse",
+        "start_vertex": 1,
+        "max_depth": 2,
+        "direction": "out"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$traverse_query_data" 200 "Traverse查询-从顶点1出发"
+
+    # 13.3 邻居查询 (neighbors of vertex 1)
+    local neighbors_query_data='{
+        "query_type": "neighbors",
+        "start_vertex": 1,
+        "direction": "out"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$neighbors_query_data" 200 "Neighbors查询-获取顶点1的邻居"
+
+    # 13.4 路径查询 (path from vertex 1 to vertex 3)
+    local path_query_data='{
+        "query_type": "path",
+        "start_vertex": 1,
+        "end_vertex": 3,
+        "max_depth": 5
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$path_query_data" 200 "Path查询-从顶点1到顶点3"
+
+    # 13.5 GraphQL-like查询语法
+    local graphql_query_data='{
+        "query": "traverse(from: 1, depth: 2, direction: \"out\")"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$graphql_query_data" 200 "GraphQL语法查询"
+
+    # 13.6 带过滤条件的查询
+    local filtered_query_data='{
+        "query_type": "neighbors",
+        "start_vertex": 1,
+        "direction": "out",
+        "filters": {"label": "user"}
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$filtered_query_data" 200 "带过滤条件的邻居查询"
+}
+
+# Graph错误场景测试
+test_graph_error_scenarios() {
+    print_header "14. Graph错误场景测试"
+
+    # 14.1 查询不存在的图
+    local nonexistent_graph_data='{
+        "query_type": "match"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/nonexistent_graph/_graph/query" "$nonexistent_graph_data" 400 "查询不存在的图"
+
+    # 14.2 traverse查询缺少start_vertex
+    local missing_start_data='{
+        "query_type": "traverse"
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$missing_start_data" 400 "Traverse缺少start_vertex"
+
+    # 14.3 path查询缺少end_vertex
+    local missing_end_data='{
+        "query_type": "path",
+        "start_vertex": 1
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/query" "$missing_end_data" 400 "Path缺少end_vertex"
+
+    # 14.4 创建图时缺少graph_name（使用table作为默认名）
+    local create_no_name_data="{
+        \"graph_type\": \"property\"
+    }"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/test_table_for_graph/_graph/create" "$create_no_name_data" 200 "创建图(使用默认表名)"
+
+    # 14.5 添加空顶点数组
+    local empty_vertices_data='{
+        "vertices": []
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/vertices" "$empty_vertices_data" 400 "添加空顶点数组"
+
+    # 14.6 添加空边数组
+    local empty_edges_data='{
+        "edges": []
+    }'
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph/edges" "$empty_edges_data" 400 "添加空边数组"
+}
+
+# Graph清理测试
+test_graph_cleanup() {
+    print_header "15. Graph清理测试"
+
+    # 15.1 删除Property Graph
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_property/_graph" null 200 "删除Property Graph"
+
+    # 15.2 删除Directed Graph
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/${TEST_GRAPH_NAME}_directed/_graph" null 200 "删除Directed Graph"
+
+    # 15.3 删除默认表名创建的图
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/test_table_for_graph/_graph" null 200 "删除默认表名Graph"
+}
+
+# Graph功能测试主函数
+test_graph_features() {
+    test_graph_crud_operations
+    test_graph_queries
+    test_graph_error_scenarios
+    test_graph_cleanup
+}
+
+# ============================================
 # 主函数
 # ============================================
 
@@ -611,6 +796,7 @@ main() {
     echo "测试数据库: $TEST_DATABASE"
     echo "测试模式: $TEST_SCHEMA"
     echo "测试表: $TEST_TABLE, $TEST_JSON_TABLE, $TEST_VECTOR_TABLE"
+    echo "测试图: ${TEST_GRAPH_NAME}_property, ${TEST_GRAPH_NAME}_directed"
     echo ""
 
     # 检查依赖
@@ -647,6 +833,9 @@ main() {
 
     # 运行向量测试（如果向量表存在且支持）
     test_vector_features
+
+    # 运行Graph测试
+    test_graph_features
 
     # 打印总结
     print_header "测试总结"

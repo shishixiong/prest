@@ -2,6 +2,7 @@ package gaussdb
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 
@@ -371,4 +372,170 @@ func TestSetDatabaseAndGetDatabase(t *testing.T) {
 
 	// Restore original
 	config.PrestConf.PGDatabase = originalDB
+}
+
+func TestBuildCreateGraphSQL(t *testing.T) {
+	tests := []struct {
+		name       string
+		database   string
+		schema     string
+		graphName  string
+		graphType  string
+		wantLen    int    // number of SQL statements
+		wantType   string // expected graph type SQL
+	}{
+		{
+			name:      "property graph",
+			database:  "mydb",
+			schema:    "public",
+			graphName: "testgraph",
+			graphType: "property",
+			wantLen:   6,
+			wantType:  "PROPERTY",
+		},
+		{
+			name:      "directed graph",
+			database:  "mydb",
+			schema:    "public",
+			graphName: "dirgraph",
+			graphType: "directed",
+			wantLen:   6,
+			wantType:  "DIRECTED",
+		},
+		{
+			name:      "undirected graph",
+			database:  "mydb",
+			schema:    "public",
+			graphName: "undirgraph",
+			graphType: "undirected",
+			wantLen:   6,
+			wantType:  "UNDIRECTED",
+		},
+		{
+			name:      "default graph type",
+			database:  "mydb",
+			schema:    "public",
+			graphName: "defaultgraph",
+			graphType: "unknown",
+			wantLen:   6,
+			wantType:  "PROPERTY",
+		},
+		{
+			name:      "empty graph type defaults to property",
+			database:  "testdb",
+			schema:    "myschema",
+			graphName: "emptgraph",
+			graphType: "",
+			wantLen:   6,
+			wantType:  "PROPERTY",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sqlStatements, insertMetadataSQL, resolvedType := buildCreateGraphSQL(tt.database, tt.schema, tt.graphName, tt.graphType)
+
+			assert.Len(t, sqlStatements, tt.wantLen, "should have correct number of SQL statements")
+			assert.Equal(t, tt.wantType, resolvedType, "graph type should be resolved correctly")
+
+			// Verify vertex table SQL
+			assert.Contains(t, sqlStatements[0], "CREATE TABLE IF NOT EXISTS")
+			assert.Contains(t, sqlStatements[0], tt.database)
+			assert.Contains(t, sqlStatements[0], tt.schema)
+			assert.Contains(t, sqlStatements[0], fmt.Sprintf("%s_vertices", tt.graphName))
+
+			// Verify edge table SQL
+			assert.Contains(t, sqlStatements[1], "CREATE TABLE IF NOT EXISTS")
+			assert.Contains(t, sqlStatements[1], fmt.Sprintf("%s_edges", tt.graphName))
+
+			// Verify index SQLs
+			assert.Contains(t, sqlStatements[2], "CREATE INDEX")
+			assert.Contains(t, sqlStatements[2], "idx_"+tt.graphName+"_label")
+
+			assert.Contains(t, sqlStatements[3], "CREATE INDEX")
+			assert.Contains(t, sqlStatements[3], "idx_"+tt.graphName+"_from")
+
+			assert.Contains(t, sqlStatements[4], "CREATE INDEX")
+			assert.Contains(t, sqlStatements[4], "idx_"+tt.graphName+"_to")
+
+			// Verify metadata table SQL
+			assert.Contains(t, sqlStatements[5], "CREATE TABLE IF NOT EXISTS")
+			assert.Contains(t, sqlStatements[5], "prest_graph_metadata")
+
+			// Verify insert metadata SQL contains ON DUPLICATE KEY UPDATE (GaussDB-specific)
+			assert.Contains(t, insertMetadataSQL, "INSERT INTO")
+			assert.Contains(t, insertMetadataSQL, "prest_graph_metadata")
+			assert.Contains(t, insertMetadataSQL, "ON DUPLICATE KEY UPDATE")
+		})
+	}
+}
+
+func TestBuildCreateGraphSQL_GraphTypeValues(t *testing.T) {
+	// Test that graph type values are correctly determined
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"property", "PROPERTY"},
+		{"directed", "DIRECTED"},
+		{"undirected", "UNDIRECTED"},
+		{"", "PROPERTY"},
+		{"invalid", "PROPERTY"},
+	}
+
+	for _, tc := range testCases {
+		_, insertSQL, resolvedType := buildCreateGraphSQL("db", "schema", "graph", tc.input)
+		assert.Equal(t, tc.expected, resolvedType, "graph type %s should map to %s", tc.input, tc.expected)
+		assert.Contains(t, insertSQL, "prest_graph_metadata", "insert SQL should contain metadata table")
+	}
+}
+
+func TestGaussDB_CreateGraph(t *testing.T) {
+	adapter := &GaussDB{}
+
+	// Test that CreateGraph returns a scanner (may have error due to no connection)
+	scanner := adapter.CreateGraph("testdb", "public", "testgraph", "property")
+
+	assert.NotNil(t, scanner)
+	// Without actual database connection, the scanner will have an error
+	// This test verifies the method signature works correctly
+}
+
+func TestGaussDB_CreateGraphCtx(t *testing.T) {
+	adapter := &GaussDB{}
+	ctx := context.Background()
+
+	// Test that CreateGraphCtx returns a scanner with context
+	scanner := adapter.CreateGraphCtx(ctx, "testdb", "public", "testgraph", "property")
+
+	assert.NotNil(t, scanner)
+	// Without actual database connection, the scanner will have an error
+	// This test verifies the method signature works correctly
+}
+
+func TestGaussDB_CreateGraph_AllGraphTypes(t *testing.T) {
+	adapter := &GaussDB{}
+
+	graphTypes := []string{"property", "directed", "undirected", "unknown"}
+
+	for _, gt := range graphTypes {
+		t.Run(gt, func(t *testing.T) {
+			scanner := adapter.CreateGraph("testdb", "public", "graph_"+gt, gt)
+			assert.NotNil(t, scanner)
+		})
+	}
+}
+
+func TestGaussDB_CreateGraphCtx_AllGraphTypes(t *testing.T) {
+	adapter := &GaussDB{}
+	ctx := context.Background()
+
+	graphTypes := []string{"property", "directed", "undirected", "unknown"}
+
+	for _, gt := range graphTypes {
+		t.Run(gt, func(t *testing.T) {
+			scanner := adapter.CreateGraphCtx(ctx, "testdb", "public", "graph_"+gt, gt)
+			assert.NotNil(t, scanner)
+		})
+	}
 }

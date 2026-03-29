@@ -17,7 +17,7 @@
 
 ```bash
 # 连接到GaussDB并创建测试表
-gsql -h localhost -p 18888 -U gaussdb -d prest -f setup_gaussdb_test_tables.sql
+docker exec gaussdb bash -c 'su - omm -c "gsql -d postgres -U gaussdb -W XXXX -f  setup_gaussdb_test_tables.sql"
 ```
 
 或者手动执行SQL语句：

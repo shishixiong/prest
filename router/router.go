@@ -50,6 +50,18 @@ func GetRouter() *mux.Router {
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/batch_search", controllers.VectorBatchSearch).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/index", controllers.CreateVectorIndex).Methods("POST")
 	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_vector/index", controllers.DeleteVectorIndex).Methods("DELETE")
+	// Graph endpoints
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/create", controllers.CreateGraph).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph", controllers.DeleteGraph).Methods("DELETE")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/query", controllers.GraphQuery).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/vertices", controllers.AddVertices).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/vertices/{id}", controllers.GetVertex).Methods("GET")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/vertices/{id}", controllers.UpdateVertex).Methods("PUT", "PATCH")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/vertices/{id}", controllers.DeleteVertex).Methods("DELETE")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/edges", controllers.AddEdges).Methods("POST")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/edges/{id}", controllers.GetEdge).Methods("GET")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/edges/{id}", controllers.UpdateEdge).Methods("PUT", "PATCH")
+	crudRoutes.HandleFunc("/{database}/{schema}/{table}/_graph/edges/{id}", controllers.DeleteEdge).Methods("DELETE")
 	router.PathPrefix("/").Handler(negroni.New(
 		middlewares.AuthMiddleware(config.PrestConf.JWTAlgo),
 		middlewares.AccessControl(),

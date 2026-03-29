@@ -11,9 +11,20 @@
 -- ============================================
 
 -- 删除已存在的测试表（如果存在）
+-- Graph相关表会在删除图时自动清理，这里只清理手动创建的表
 DROP TABLE IF EXISTS test_vector_data;
 DROP TABLE IF EXISTS test_json_data;
 DROP TABLE IF EXISTS test_users;
+
+-- Graph测试用的元数据表（手动创建以便SHOW命令可以查询）
+-- 注意：实际的graph vertices/edges表会在调用_create_graph API时自动创建
+DROP TABLE IF EXISTS prest_graph_metadata;
+
+CREATE TABLE IF NOT EXISTS prest_graph_metadata (
+    graph_name TEXT PRIMARY KEY,
+    graph_type TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- 创建用户测试表
 CREATE TABLE test_users (

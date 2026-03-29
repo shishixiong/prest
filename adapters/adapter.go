@@ -102,6 +102,51 @@ type Adapter interface {
 	UpdateSQL(database string, schema string, table string, setSyntax string) string
 	WhereByRequest(r *http.Request, initialPlaceholderID int) (whereSyntax string, values []interface{}, err error)
 
+	// Graph data operations
+	// CreateGraph creates a graph structure in the database
+	CreateGraph(database, schema, graphName string, graphType string) (sc Scanner)
+	CreateGraphCtx(ctx context.Context, database, schema, graphName string, graphType string) (sc Scanner)
+
+	// DeleteGraph deletes a graph structure from the database
+	DeleteGraph(database, schema, graphName string) (sc Scanner)
+	DeleteGraphCtx(ctx context.Context, database, schema, graphName string) (sc Scanner)
+
+	// AddVertices adds vertices to a graph
+	AddVertices(database, schema, graphName string, vertices []map[string]interface{}) (sc Scanner)
+	AddVerticesCtx(ctx context.Context, database, schema, graphName string, vertices []map[string]interface{}) (sc Scanner)
+
+	// AddEdges adds edges to a graph
+	AddEdges(database, schema, graphName string, edges []map[string]interface{}) (sc Scanner)
+	AddEdgesCtx(ctx context.Context, database, schema, graphName string, edges []map[string]interface{}) (sc Scanner)
+
+	// GraphQuery executes a graph query
+	GraphQuery(database, schema, graphName string, queryType string, queryParams map[string]interface{}) (sc Scanner)
+	GraphQueryCtx(ctx context.Context, database, schema, graphName string, queryType string, queryParams map[string]interface{}) (sc Scanner)
+
+	// GetVertex retrieves a vertex by ID
+	GetVertex(database, schema, graphName string, vertexID interface{}) (sc Scanner)
+	GetVertexCtx(ctx context.Context, database, schema, graphName string, vertexID interface{}) (sc Scanner)
+
+	// GetEdge retrieves an edge by ID
+	GetEdge(database, schema, graphName string, edgeID interface{}) (sc Scanner)
+	GetEdgeCtx(ctx context.Context, database, schema, graphName string, edgeID interface{}) (sc Scanner)
+
+	// UpdateVertex updates a vertex properties
+	UpdateVertex(database, schema, graphName string, vertexID interface{}, properties map[string]interface{}) (sc Scanner)
+	UpdateVertexCtx(ctx context.Context, database, schema, graphName string, vertexID interface{}, properties map[string]interface{}) (sc Scanner)
+
+	// UpdateEdge updates an edge properties
+	UpdateEdge(database, schema, graphName string, edgeID interface{}, properties map[string]interface{}) (sc Scanner)
+	UpdateEdgeCtx(ctx context.Context, database, schema, graphName string, edgeID interface{}, properties map[string]interface{}) (sc Scanner)
+
+	// DeleteVertex deletes a vertex
+	DeleteVertex(database, schema, graphName string, vertexID interface{}) (sc Scanner)
+	DeleteVertexCtx(ctx context.Context, database, schema, graphName string, vertexID interface{}) (sc Scanner)
+
+	// DeleteEdge deletes an edge
+	DeleteEdge(database, schema, graphName string, edgeID interface{}) (sc Scanner)
+	DeleteEdgeCtx(ctx context.Context, database, schema, graphName string, edgeID interface{}) (sc Scanner)
+
 	ShowTable(schema, table string) (sc Scanner)
 	ShowTableCtx(ctx context.Context, schema, table string) (sc Scanner)
 }

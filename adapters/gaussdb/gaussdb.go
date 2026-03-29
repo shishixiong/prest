@@ -9,6 +9,7 @@ import (
 	"github.com/prest/prest/v2/adapters"
 	"github.com/prest/prest/v2/adapters/gaussdb/statements"
 	"github.com/prest/prest/v2/adapters/postgres"
+	"github.com/prest/prest/v2/adapters/scanner"
 	"github.com/prest/prest/v2/config"
 )
 
@@ -102,5 +103,122 @@ func (adapter *GaussDB) SchemaTablesClause() (query string) {
 	return
 }
 
-// Note: Other methods will automatically use the embedded Postgres adapter's implementation
-// We only need to override methods that are GaussDB-specific
+// buildCreateGraphSQL builds all SQL statements needed for creating a graph.
+// Returns the SQL statements to execute, the insert metadata SQL with placeholders,
+// and the resolved graph type SQL value.
+func buildCreateGraphSQL(database, schema, graphName, graphType string) ([]string, string, string) {
+	// Determine graph type SQL
+	var graphTypeSQL string
+	switch graphType {
+	case "property":
+		graphTypeSQL = "PROPERTY"
+	case "directed":
+		graphTypeSQL = "DIRECTED"
+	case "undirected":
+		graphTypeSQL = "UNDIRECTED"
+	default:
+		graphTypeSQL = "PROPERTY"
+	}
+
+	// Create vertex and edge tables to simulate a graph
+	vertexTable := fmt.Sprintf("%s_vertices", graphName)
+	edgeTable := fmt.Sprintf("%s_edges", graphName)
+
+	// Create vertex table
+	vertexSQL := fmt.Sprintf(`
+		CREATE TABLE IF NOT EXISTS %s.%s.%s (
+			id BIGINT PRIMARY KEY,
+			label TEXT,
+			properties JSONB DEFAULT '{}'::jsonb
+		)`, database, schema, vertexTable)
+
+	// Create edge table with foreign key references
+	edgeSQL := fmt.Sprintf(`
+		CREATE TABLE IF NOT EXISTS %s.%s.%s (
+			id BIGINT PRIMARY KEY,
+			from_vertex BIGINT NOT NULL REFERENCES %s.%s.%s(id),
+			to_vertex BIGINT NOT NULL REFERENCES %s.%s.%s(id),
+			label TEXT,
+			properties JSONB DEFAULT '{}'::jsonb
+		)`, database, schema, edgeTable, database, schema, vertexTable, database, schema, vertexTable)
+
+	// Create indexes for better performance
+	vertexIdxSQL := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_label ON %s.%s.%s(label)`, graphName, database, schema, vertexTable)
+	edgeFromIdxSQL := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_from ON %s.%s.%s(from_vertex)`, graphName, database, schema, edgeTable)
+	edgeToIdxSQL := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_%s_to ON %s.%s.%s(to_vertex)`, graphName, database, schema, edgeTable)
+
+	// Store graph metadata
+	metadataSQL := fmt.Sprintf(`
+		CREATE TABLE IF NOT EXISTS %s.%s.prest_graph_metadata (
+			graph_name TEXT PRIMARY KEY,
+			graph_type TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)`, database, schema)
+
+	// GaussDB uses ON DUPLICATE KEY UPDATE instead of ON CONFLICT
+	insertMetadataSQL := fmt.Sprintf(`
+		INSERT INTO %s.%s.prest_graph_metadata (graph_name, graph_type)
+		VALUES ($1, $2)
+		ON DUPLICATE KEY UPDATE graph_type = VALUES(graph_type)
+	`, database, schema)
+
+	sqlStatements := []string{
+		vertexSQL,
+		edgeSQL,
+		vertexIdxSQL,
+		edgeFromIdxSQL,
+		edgeToIdxSQL,
+		metadataSQL,
+	}
+
+	return sqlStatements, insertMetadataSQL, graphTypeSQL
+}
+
+// CreateGraph creates a graph structure in GaussDB
+// GaussDB uses MySQL-compatible ON DUPLICATE KEY UPDATE syntax instead of PostgreSQL's ON CONFLICT
+func (adapter *GaussDB) CreateGraph(database, schema, graphName string, graphType string) adapters.Scanner {
+	sqlStatements, insertMetadataSQL, graphTypeSQL := buildCreateGraphSQL(database, schema, graphName, graphType)
+
+	// Execute all SQL statements in a transaction
+	tx, err := adapter.GetTransaction()
+	if err != nil {
+		return &scanner.PrestScanner{Error: err}
+	}
+
+	for _, sql := range sqlStatements {
+		if _, err := tx.Exec(sql); err != nil {
+			tx.Rollback()
+			return &scanner.PrestScanner{Error: err}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return &scanner.PrestScanner{Error: err}
+	}
+
+	return adapter.ExecuteScripts("POST", insertMetadataSQL, []interface{}{graphName, graphTypeSQL})
+}
+
+// CreateGraphCtx creates a graph structure in GaussDB with context
+func (adapter *GaussDB) CreateGraphCtx(ctx context.Context, database, schema, graphName string, graphType string) adapters.Scanner {
+	sqlStatements, insertMetadataSQL, graphTypeSQL := buildCreateGraphSQL(database, schema, graphName, graphType)
+
+	// Execute all SQL statements in a transaction with context
+	tx, err := adapter.GetTransactionCtx(ctx)
+	if err != nil {
+		return &scanner.PrestScanner{Error: err}
+	}
+
+	for _, sql := range sqlStatements {
+		if _, err := tx.Exec(sql); err != nil {
+			tx.Rollback()
+			return &scanner.PrestScanner{Error: err}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return &scanner.PrestScanner{Error: err}
+	}
+
+	return adapter.ExecuteScriptsCtx(ctx, "POST", insertMetadataSQL, []interface{}{graphName, graphTypeSQL})
+}
