@@ -1,0 +1,1142 @@
+{
+  "info": {
+    "name": "pREST GaussDB API",
+    "description": "pREST REST API 测试集 - 针对 GaussDB 适配器",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "database",
+      "value": "prest"
+    },
+    {
+      "key": "schema",
+      "value": "public"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. 系统信息查询",
+      "item": [
+        {
+          "name": "健康检查",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/_health",
+            "description": "检查 pREST 服务健康状态"
+          }
+        },
+        {
+          "name": "数据库列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/databases",
+            "description": "获取所有数据库列表"
+          }
+        },
+        {
+          "name": "模式列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schemas",
+            "description": "获取所有模式列表"
+          }
+        },
+        {
+          "name": "所有表列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/tables",
+            "description": "获取所有表列表"
+          }
+        },
+        {
+          "name": "数据库模式列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}",
+            "description": "获取特定数据库的模式列表"
+          }
+        },
+        {
+          "name": "查看表结构",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/show/{{database}}/{{schema}}/test_users",
+            "description": "查看 test_users 表结构"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. CRUD操作",
+      "item": [
+        {
+          "name": "插入测试数据",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"测试用户\",\"email\":\"test_crud@example.com\",\"age\":28,\"salary\":6000.00}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "插入单条测试数据"
+          }
+        },
+        {
+          "name": "查询插入的数据",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.test_crud@example.com",
+            "description": "根据邮箱查询数据"
+          }
+        },
+        {
+          "name": "全量更新数据 (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"更新用户\",\"age\":29,\"salary\":6500.00}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.test_crud@example.com",
+            "description": "全量更新数据"
+          }
+        },
+        {
+          "name": "部分更新数据 (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"salary\":7000.00}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.test_crud@example.com",
+            "description": "部分更新数据"
+          }
+        },
+        {
+          "name": "删除测试数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.test_crud@example.com",
+            "description": "删除测试数据"
+          }
+        },
+        {
+          "name": "验证数据已删除",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.test_crud@example.com",
+            "description": "验证数据已删除"
+          }
+        },
+        {
+          "name": "批量插入数据",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[{\"name\":\"批量用户1\",\"email\":\"batch1@example.com\",\"age\":25,\"salary\":5000},{\"name\":\"批量用户2\",\"email\":\"batch2@example.com\",\"age\":30,\"salary\":8000}]"
+            },
+            "url": "{{baseUrl}}/batch/{{database}}/{{schema}}/test_users",
+            "description": "批量插入多条数据"
+          }
+        },
+        {
+          "name": "清理批量数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$in.batch1@example.com,batch2@example.com",
+            "description": "清理批量插入的测试数据"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. 查询功能",
+      "item": [
+        {
+          "name": "基本查询",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "查询所有数据"
+          }
+        },
+        {
+          "name": "过滤: 年龄大于25",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?age=$gt.25",
+            "description": "过滤条件: 大于"
+          }
+        },
+        {
+          "name": "过滤: 工资小于7000",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?salary=$lt.7000",
+            "description": "过滤条件: 小于"
+          }
+        },
+        {
+          "name": "多条件过滤",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?age=$gt.25&salary=$lt.8000",
+            "description": "同时使用多个过滤条件"
+          }
+        },
+        {
+          "name": "按年龄降序排序",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?_order=-age",
+            "description": "_order=-age 表示降序"
+          }
+        },
+        {
+          "name": "分页查询 (limit=2, offset=1)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?_limit=2&_offset=1",
+            "description": "分页查询"
+          }
+        },
+        {
+          "name": "选择特定字段",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?_select=id,name,age",
+            "description": "只返回指定字段"
+          }
+        },
+        {
+          "name": "计数查询",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?_count=*",
+            "description": "返回记录总数"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. JSON功能",
+      "item": [
+        {
+          "name": "插入JSON数据",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"metadata\":\"{\\\"department\\\":\\\"IT\\\",\\\"role\\\":\\\"developer\\\",\\\"skills\\\":[\\\"Go\\\",\\\"PostgreSQL\\\"]}\",\"tags\":[\"backend\",\"database\"]}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_json_data",
+            "description": "插入包含JSON的数据"
+          }
+        },
+        {
+          "name": "查询JSON字段",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_json_data?metadata->>department:jsonb=IT",
+            "description": "查询JSON字段中的值"
+          }
+        },
+        {
+          "name": "清理JSON测试数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_json_data?metadata->>department:jsonb=IT",
+            "description": "清理JSON测试数据"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. 错误处理",
+      "item": [
+        {
+          "name": "查询不存在的表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/nonexistent_table",
+            "description": "期望返回 404"
+          }
+        },
+        {
+          "name": "查询不存在的字段",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?nonexistent_field=$eq.test",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "无效的查询语法",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?age=$invalid.25",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "插入冲突测试数据 (第一次)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"冲突测试\",\"email\":\"conflict@example.com\",\"age\":30,\"salary\":5000}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "第一次插入"
+          }
+        },
+        {
+          "name": "插入冲突测试数据 (第二次，期望冲突)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"冲突测试\",\"email\":\"conflict@example.com\",\"age\":30,\"salary\":5000}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "第二次插入，期望返回 400"
+          }
+        },
+        {
+          "name": "清理冲突测试数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.conflict@example.com",
+            "description": "清理冲突测试数据"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. 特殊情况",
+      "item": [
+        {
+          "name": "查询空表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "查询空表"
+          }
+        },
+        {
+          "name": "插入包含特殊字符的数据",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"测试&特殊<字符>\",\"email\":\"special@example.com\",\"age\":99,\"salary\":9999}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "测试特殊字符处理"
+          }
+        },
+        {
+          "name": "清理特殊字符数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.special@example.com",
+            "description": "清理特殊字符测试数据"
+          }
+        },
+        {
+          "name": "插入大数字数据",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"大数字测试\",\"email\":\"bignumber@example.com\",\"age\":150,\"salary\":999999.99}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users",
+            "description": "测试大数字处理"
+          }
+        },
+        {
+          "name": "清理大数字数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_users?email=$eq.bignumber@example.com",
+            "description": "清理大数字测试数据"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. 向量CRUD操作",
+      "item": [
+        {
+          "name": "插入向量测试数据",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"向量测试文档\",\n  \"content\": \"这是一个向量测试文档\",\n  \"embedding\": [0.3, 0.4, 0.5],\n  \"category\": \"Test\",\n  \"metadata\": \"{\\\"tags\\\": [\\\"test\\\", \\\"vector\\\"]}\",\n  \"is_active\": true\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data",
+            "description": "插入向量数据"
+          }
+        },
+        {
+          "name": "查询插入的向量数据",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data?title=$eq.向量测试文档",
+            "description": "查询向量数据"
+          }
+        },
+        {
+          "name": "更新向量数据",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": [0.6, 0.7, 0.8],\n  \"title\": \"更新后的向量文档\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data?title=$eq.向量测试文档",
+            "description": "更新向量数据"
+          }
+        },
+        {
+          "name": "删除向量测试数据",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data?title=$eq.更新后的向量文档",
+            "description": "删除向量测试数据"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. 向量相似性搜索",
+      "item": [
+        {
+          "name": "余弦距离向量搜索",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"cosine\",\n  \"limit\": 3,\n  \"vector_field\": \"embedding\",\n  \"include_distance\": true\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "使用余弦距离进行向量相似性搜索"
+          }
+        },
+        {
+          "name": "欧氏距离向量搜索",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"l2\",\n  \"vector_field\": \"embedding\",\n  \"limit\": 2\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "使用欧氏距离进行向量相似性搜索"
+          }
+        },
+        {
+          "name": "内积距离向量搜索",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"inner\",\n  \"vector_field\": \"embedding\",\n  \"limit\": 2\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "使用内积距离进行向量相似性搜索"
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. 混合查询（向量+过滤条件）",
+      "item": [
+        {
+          "name": "向量搜索+类别过滤",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"cosine\",\n  \"vector_field\": \"embedding\",\n  \"limit\": 5,\n  \"where\": {\n    \"category\": \"AI\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "向量搜索结合标量字段过滤"
+          }
+        },
+        {
+          "name": "向量搜索+多条件过滤",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"cosine\",\n  \"vector_field\": \"embedding\",\n  \"limit\": 5,\n  \"where\": {\n    \"category\": \"AI\",\n    \"is_active\": true\n  }\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "向量搜索结合多个过滤条件"
+          }
+        },
+        {
+          "name": "向量搜索+JSON字段过滤",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"cosine\",\n  \"vector_field\": \"embedding\",\n  \"limit\": 5,\n  \"where\": {\n    \"metadata->>difficulty:jsonb\": \"advanced\"\n  }\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "向量搜索结合JSON字段过滤"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. 向量索引操作",
+      "item": [
+        {
+          "name": "创建HNSW向量索引",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"index_type\": \"hnsw\",\n  \"vector_field\": \"embedding\",\n  \"distance_metric\": \"cosine\",\n  \"m\": 16,\n  \"ef_construction\": 64\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/index",
+            "description": "创建HNSW索引"
+          }
+        },
+        {
+          "name": "删除向量索引",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vector_field\": \"embedding\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/index",
+            "description": "删除向量索引"
+          }
+        },
+        {
+          "name": "创建IVFFlat向量索引",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"index_type\": \"ivfflat\",\n  \"vector_field\": \"embedding\",\n  \"distance_metric\": \"cosine\",\n  \"lists\": 100\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/index",
+            "description": "创建IVFFlat索引"
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. 向量错误场景",
+      "item": [
+        {
+          "name": "无效向量格式",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, \"not-a-number\", 0.3],\n  \"distance_metric\": \"cosine\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "无效距离度量",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"invalid_metric\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "缺失查询向量",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"distance_metric\": \"cosine\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "不存在的向量字段",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_vector\": [0.1, 0.2, 0.3],\n  \"distance_metric\": \"cosine\",\n  \"vector_field\": \"nonexistent_field\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_vector_data/_vector/search",
+            "description": "期望返回 400"
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Graph CRUD操作",
+      "item": [
+        {
+          "name": "创建Property Graph",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"graph_name\": \"test_graph_api_property\",\n  \"graph_type\": \"property\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api/_graph/create",
+            "description": "创建属性图"
+          }
+        },
+        {
+          "name": "创建Directed Graph",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"graph_name\": \"test_graph_api_directed\",\n  \"graph_type\": \"directed\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api/_graph/create",
+            "description": "创建有向图"
+          }
+        },
+        {
+          "name": "添加顶点到Property Graph",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vertices\": [\n    {\"id\": 1, \"label\": \"user\", \"properties\": {\"name\": \"Alice\", \"age\": 30}},\n    {\"id\": 2, \"label\": \"user\", \"properties\": {\"name\": \"Bob\", \"age\": 25}},\n    {\"id\": 3, \"label\": \"user\", \"properties\": {\"name\": \"Charlie\", \"age\": 35}},\n    {\"id\": 4, \"label\": \"product\", \"properties\": {\"name\": \"Laptop\", \"price\": 999.99}},\n    {\"id\": 5, \"label\": \"product\", \"properties\": {\"name\": \"Mouse\", \"price\": 29.99}}\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/vertices",
+            "description": "批量添加顶点"
+          }
+        },
+        {
+          "name": "添加边到Property Graph",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edges\": [\n    {\"id\": 1, \"from\": 1, \"to\": 2, \"label\": \"knows\", \"properties\": {\"since\": \"2020\"}},\n    {\"id\": 2, \"from\": 1, \"to\": 3, \"label\": \"knows\", \"properties\": {\"since\": \"2019\"}},\n    {\"id\": 3, \"from\": 2, \"to\": 4, \"label\": \"bought\", \"properties\": {\"date\": \"2024-01-15\"}},\n    {\"id\": 4, \"from\": 3, \"to\": 5, \"label\": \"bought\", \"properties\": {\"date\": \"2024-02-20\"}},\n    {\"id\": 5, \"from\": 1, \"to\": 4, \"label\": \"viewed\", \"properties\": {\"date\": \"2024-03-01\"}}\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/edges",
+            "description": "批量添加边"
+          }
+        },
+        {
+          "name": "添加顶点到Directed Graph",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vertices\": [\n    {\"id\": 1, \"label\": \"nodeA\", \"properties\": {\"value\": 100}},\n    {\"id\": 2, \"label\": \"nodeB\", \"properties\": {\"value\": 200}},\n    {\"id\": 3, \"label\": \"nodeC\", \"properties\": {\"value\": 300}}\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_directed/_graph/vertices",
+            "description": "添加顶点到有向图"
+          }
+        },
+        {
+          "name": "添加边到Directed Graph",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edges\": [\n    {\"id\": 1, \"from\": 1, \"to\": 2, \"label\": \"depends_on\", \"properties\": {\"weight\": 5}},\n    {\"id\": 2, \"from\": 2, \"to\": 3, \"label\": \"depends_on\", \"properties\": {\"weight\": 10}}\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_directed/_graph/edges",
+            "description": "添加边到有向图"
+          }
+        }
+      ]
+    },
+    {
+      "name": "13. Graph查询",
+      "item": [
+        {
+          "name": "Match查询-获取所有顶点",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"match\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "获取图中的所有顶点"
+          }
+        },
+        {
+          "name": "Traverse查询-从顶点1出发",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"traverse\",\n  \"start_vertex\": 1,\n  \"max_depth\": 2,\n  \"direction\": \"out\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "从指定顶点开始遍历"
+          }
+        },
+        {
+          "name": "Neighbors查询-获取顶点1的邻居",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"neighbors\",\n  \"start_vertex\": 1,\n  \"direction\": \"out\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "获取指定顶点的邻居节点"
+          }
+        },
+        {
+          "name": "Path查询-从顶点1到顶点3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"path\",\n  \"start_vertex\": 1,\n  \"end_vertex\": 3,\n  \"max_depth\": 5\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "查询两点之间的路径"
+          }
+        },
+        {
+          "name": "GraphQL语法查询",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"traverse(from: 1, depth: 2, direction: \\\"out\\\")\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "使用类GraphQL语法查询"
+          }
+        },
+        {
+          "name": "带过滤条件的邻居查询",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"neighbors\",\n  \"start_vertex\": 1,\n  \"direction\": \"out\",\n  \"filters\": {\"label\": \"user\"}\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "邻居查询带标签过滤"
+          }
+        }
+      ]
+    },
+    {
+      "name": "14. Graph错误场景",
+      "item": [
+        {
+          "name": "查询不存在的图",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"match\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/nonexistent_graph/_graph/query",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "Traverse缺少start_vertex",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"traverse\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "Path缺少end_vertex",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query_type\": \"path\",\n  \"start_vertex\": 1\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/query",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "创建图(使用默认表名)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"graph_type\": \"property\"\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_table_for_graph/_graph/create",
+            "description": "创建图时缺少graph_name"
+          }
+        },
+        {
+          "name": "添加空顶点数组",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vertices\": []\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/vertices",
+            "description": "期望返回 400"
+          }
+        },
+        {
+          "name": "添加空边数组",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"edges\": []\n}"
+            },
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph/edges",
+            "description": "期望返回 400"
+          }
+        }
+      ]
+    },
+    {
+      "name": "15. Graph清理",
+      "item": [
+        {
+          "name": "删除Property Graph",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_property/_graph",
+            "description": "删除属性图"
+          }
+        },
+        {
+          "name": "删除Directed Graph",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_graph_api_directed/_graph",
+            "description": "删除有向图"
+          }
+        },
+        {
+          "name": "删除默认表名Graph",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/{{database}}/{{schema}}/test_table_for_graph/_graph",
+            "description": "删除使用默认表名创建的图"
+          }
+        }
+      ]
+    }
+  ]
+}
