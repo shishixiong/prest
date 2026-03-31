@@ -216,6 +216,9 @@ func getDistanceOperator(metric string) string {
 	case "l2", "euclidean":
 		return "<->"
 	case "cosine":
+		if config.PrestConf.DatabaseType == "gaussdb" {
+			return "<+>"
+		}
 		return "<=>"
 	case "inner", "inner_product", "ip":
 		return "<#>"
@@ -224,22 +227,28 @@ func getDistanceOperator(metric string) string {
 	}
 }
 
+type IndexRequest struct {
+	VectorType                 string `json:"vector_type,omitempty"` //vector/bit/sparsevec
+	VectorField                string `json:"vector_field,omitempty"`
+	IndexType                  string `json:"index_type"`                // hnsw/ivfflat/gsdiskann/gsivfflat
+	DistanceMetric             string `json:"distance_metric"`           // cosine/l2/inner_product
+	M                          int    `json:"m,omitempty"`               // HNSW参数
+	EFConstruction             int    `json:"ef_construction,omitempty"` // HNSW参数
+	Lists                      int    `json:"lists,omitempty"`           // IVFFlat参数
+	PgNseg                     int    `json:"pq_nseg,omitempty"`
+	PqNclus                    int    `json:"pq_nclus,omitempty"`
+	QueueSize                  int    `json:"queue_size,omitempty"`
+	NumParallels               int    `json:"num_parallels,omitempty"`
+	EnablePq                   bool   `json:"enable_pq,omitempty"`
+	UsingClusteringForParallel bool   `json:"using_clustering_for_parallel,omitempty"`
+}
+
 // CreateVectorIndex 创建向量索引
 func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	database := vars["database"]
 	schema := vars["schema"]
 	table := vars["table"]
-
-	type IndexRequest struct {
-		VectorType     string `json:"vector_type,omitempty"` //vector/bit/sparsevec
-		VectorField    string `json:"vector_field,omitempty"`
-		IndexType      string `json:"index_type"`                // hnsw/ivfflat
-		DistanceMetric string `json:"distance_metric"`           // cosine/l2/inner_product
-		M              int    `json:"m,omitempty"`               // HNSW参数
-		EFConstruction int    `json:"ef_construction,omitempty"` // HNSW参数
-		Lists          int    `json:"lists,omitempty"`           // IVFFlat参数
-	}
 
 	var req IndexRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -292,6 +301,28 @@ func CreateVectorIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING ivfflat (%s %s) WITH (lists = %d)`,
 			indexName, database, schema, table, req.VectorField, opClass, req.Lists)
+	case "gsivfflat":
+		if req.Lists <= 0 {
+			req.Lists = 100
+		}
+		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING gsivfflat (%s %s) WITH (IVF_NLIST = %d)`,
+			indexName, database, schema, table, req.VectorField, req.DistanceMetric, req.Lists)
+	case "gsdiskann":
+		if req.PgNseg <= 0 {
+			req.PgNseg = 128
+		}
+		if req.PqNclus <= 0 {
+			req.PqNclus = 16
+		}
+		if req.QueueSize <= 0 {
+			req.QueueSize = 100
+		}
+		if req.NumParallels <= 0 {
+			req.NumParallels = 100
+		}
+		sql = fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON %s.%s.%s USING gsdiskann (%s %s) WITH (pq_nseg=%d, pq_nclus=%d, queue_size=%d, num_parallels=%d, enable_pq=%t, using_clustering_for_parallel=%t)`,
+			indexName, database, schema, table, req.VectorField, req.DistanceMetric, req.PgNseg, req.PqNclus,
+			req.QueueSize, req.NumParallels, req.EnablePq, req.UsingClusteringForParallel)
 	default:
 		jsonError(w, fmt.Sprintf("Unsupported index type: %s. Supported: hnsw, ivfflat", req.IndexType), http.StatusBadRequest)
 		return

@@ -67,7 +67,7 @@ CREATE TABLE test_vector_data (
     id SERIAL PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
     content TEXT,
-    embedding vector(3),  -- 3维向量，与现有测试一致
+    embedding floatvector(3),  -- 3维向量，与现有测试一致
     category VARCHAR(50),
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

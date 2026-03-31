@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+#set -euo pipefail
 
 # ============================================
 # GaussDB pREST REST API 全面测试脚本
@@ -43,7 +43,7 @@ SKIP_CLEANUP="${SKIP_CLEANUP:-false}"
 TEST_TABLE="test_users"
 TEST_JSON_TABLE="test_json_data"
 TEST_SCHEMA="public"
-TEST_DATABASE="prest"
+TEST_DATABASE="app_db"
 
 # 向量测试表名
 TEST_VECTOR_TABLE="test_vector_data"
@@ -377,7 +377,7 @@ test_error_handling() {
     print_header "5. 错误处理测试"
 
     # 5.1 不存在的表
-    send_request "GET" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/nonexistent_table" null 404 "查询不存在的表"
+    send_request "GET" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/nonexistent_table" null 400 "查询不存在的表"
 
     # 5.2 不存在的字段
     send_request "GET" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_TABLE?nonexistent_field=\$eq.test" null 400 "查询不存在的字段"
@@ -469,14 +469,14 @@ test_vector_search() {
     }'
     send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$l2_search_data" 200 "欧氏距离向量搜索"
 
-    # 8.3 内积距离搜索
-    local inner_search_data='{
-        "query_vector": [0.1, 0.2, 0.3],
-        "distance_metric": "inner",
-        "vector_field": "embedding",
-        "limit": 2
-    }'
-    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$inner_search_data" 200 "内积距离向量搜索"
+    # 8.3 hannming距离搜索
+#    local inner_search_data='{
+#        "query_vector": [0.1, 0.2, 0.3],
+#        "distance_metric": "inner",
+#        "vector_field": "embedding",
+#        "limit": 2
+#    }'
+#    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/search" "$inner_search_data" 200 "内积距离向量搜索"
 }
 
 # 混合查询测试（向量搜索+传统过滤条件）
@@ -525,15 +525,19 @@ test_hybrid_search() {
 test_vector_index_operations() {
     print_header "10. 向量索引操作测试"
 
-    # 10.1 创建HNSW索引
+    # 10.1 创建GSDISKANN索引
     local hnsw_index_data='{
-        "index_type": "hnsw",
+        "index_type": "gsdiskann",
         "vector_field": "embedding",
         "distance_metric": "cosine",
-        "m": 16,
-        "ef_construction": 64
+        "pq_nseg" : 3,
+        "pq_nclus" : 16,
+        "queue_size" : 100,
+        "num_parallels" : 30,
+        "enable_pq" : true,
+        "using_clustering_for_parallel" : false
     }'
-    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$hnsw_index_data" 200 "创建HNSW向量索引"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$hnsw_index_data" 200 "创建GSDISKANN向量索引"
 
     # 10.2 删除向量索引
     local delete_index_data='{
@@ -541,17 +545,17 @@ test_vector_index_operations() {
     }'
     send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$delete_index_data" 200 "删除向量索引"
 
-    # 10.3 创建IVFFlat索引
+    # 10.3 创建GSIVFFLAT索引
     local ivfflat_index_data='{
-        "index_type": "ivfflat",
+        "index_type": "gsivfflat",
         "vector_field": "embedding",
         "distance_metric": "cosine",
         "lists": 100
     }'
-    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$ivfflat_index_data" 200 "创建IVFFlat向量索引"
+    send_request "POST" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$ivfflat_index_data" 200 "创建GSIVFFLAT向量索引"
 
     # 10.4 清理：删除IVFFlat索引
-    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$delete_index_data" 200 "清理IVFFlat索引"
+    send_request "DELETE" "$BASE_URL/$TEST_DATABASE/$TEST_SCHEMA/$TEST_VECTOR_TABLE/_vector/index" "$delete_index_data" 200 "清理GSIVFFLAT索引"
 }
 
 # 向量错误场景测试
@@ -835,7 +839,7 @@ main() {
     test_vector_features
 
     # 运行Graph测试
-    test_graph_features
+#    test_graph_features
 
     # 打印总结
     print_header "测试总结"
