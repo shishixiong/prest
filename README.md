@@ -1,19 +1,10 @@
 # pRESTd
 
-[![Tests](https://github.com/prest/prest/actions/workflows/test.yml/badge.svg)](https://github.com/prest/prest/actions/workflows/test.yml)
-[![GoDoc](https://godoc.org/github.com/prest/prest?status.png)](https://godoc.org/github.com/prest/prest)
-[![Go Report Card](https://goreportcard.com/badge/github.com/prest/prest)](https://goreportcard.com/report/github.com/prest/prest)
-[![codecov](https://codecov.io/gh/prest/prest/branch/main/graph/badge.svg?token=eVD9urwIEv)](https://codecov.io/gh/prest/prest)
-[![Homebrew](https://img.shields.io/badge/dynamic/json.svg?url=https://formulae.brew.sh/api/formula/prestd.json&query=$.versions.stable&label=homebrew)](https://formulae.brew.sh/formula/prestd)
-[![Discord](https://img.shields.io/badge/discord-prestd-blue?logo=discord)](https://discord.gg/JnRjvu39w8)
-
 _p_**REST** (**P**_ostgreSQL_ **REST**), is a simple production-ready API, that delivers an instant, realtime, and high-performance application on top of your **existing or new Postgres** database.
 
 > PostgreSQL version 9.5 or higher
-
-Contributor License Agreement - [![CLA assistant](https://cla-assistant.io/readme/badge/prest/prest)](https://cla-assistant.io/prest/prest)
-
-<a href="https://www.producthunt.com/posts/prest?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-prest" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=303506&theme=light" alt="pREST - instant, realtime, high-performance on PostgreSQL | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+> Opengauss
+> Gaussdb version 506
 
 ## Problems we solve
 
@@ -28,58 +19,122 @@ The pREST project is the API that addresses the need for fast and efficient solu
 
 Overall, pREST simplifies the process of creating secure and performant RESTful APIs on top of your new or old PostgreSQL database.
 
-[Read more](https://github.com/prest/prest/issues/41).
-
 ## Why we built pREST
 
 When we built pREST, we originally intended to contribute and build with the PostgREST project, although it took a lot of work as the project is in Haskell. At the time, we did not have anything similar or intended to keep working with that tech stack. We've been building production-ready Go applications for a long time, so building a similar project with Golang as its core was natural.
 
 Additionally, as Go has taken a huge role in many other vital projects such as Kubernetes and Docker, and we've been able to use the pREST project in many different companies with success over the years, it has shown to be an excellent decision.
 
-## 1-Click Deploy
+## How to deploy a gaussdb restful service
 
-### Heroku
+### Run a gaussdb in docker
+- single node:
+- centralize 3 nodes:
+- distribution cluster:
 
-Deploy to Heroku and instantly get a realtime RESTFul API backed by Heroku Postgres:
+### Login into gaussdb and create database、user
+```sql
+CREATE USER app_user WITH
+    PASSWORD 'XXXX'
+    CREATEDB
+    LOGIN;
 
-[![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/prest/prest-heroku)
+CREATE DATABASE app_db
+    OWNER app_user
+    ENCODING 'UTF8'
+    DBCOMPATIBILITY 'A'
+    CONNECTION LIMIT 50;
 
-## Documentation
+\c app_db
 
-Visit <https://docs.prestd.com/>
+-- 授权模式权限
+GRANT USAGE ON SCHEMA public TO app_user;
+GRANT CREATE ON SCHEMA public TO app_user;
 
-## Testing
+-- 授权现有表权限（如果已有表）
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 
-Run the test suite inside Docker (no local Postgres required):
+-- 设置默认权限（新表自动继承）
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
-```bash
-make test
 ```
 
-Or directly with Docker Compose:
+### Create prest.toml
+```toml
+# Development configuration for pREST
 
-```bash
-docker compose -f docker-compose-test.yml up --abort-on-container-exit --exit-code-from tests
-docker compose -f docker-compose-test.yml down -v --remove-orphans
+[auth]
+enabled = false
+table = "prest_users"
+username = "prest"
+password = "prest"
+
+[http]
+host = "0.0.0.0"
+port = 3000
+timeout = 60
+
+[database]
+type = "gaussdb"
+
+[pg]
+host = "<gaussdb access host>"
+port = <gaussdb port>
+user = "app_user"
+pass = "XXXXX"
+database = "app_db"
+ssl.mode = "disable"
+cache = false
+single = true
+
+[jwt]
+default = false
+algo = "HS256"
+whitelist = ["^\\/auth$"]
+
+[cors]
+alloworigin = ["*"]
+allowheaders = ["Content-Type"]
+allowmethods = ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"]
+allowcredentials = true
+
+[json]
+agg.type = "json_agg"
+
+[vector]
+enabled = true
+default_distance = "cosine"
+default_dimensions = 128
+index_type = "hnsw"
+max_connections = 16
+ef_construction = 64
+default_vector_field = "embedding"
+
+[cache]
+enabled = false
+time = 10
+storagepath = "./"
+sufixfile = ".cache.prestd.db"
+
+[access]
+restrict = false # allow access to all tables for development
+
+[expose]
+enabled = true
+tables = true
+schemas = true
+databases = true
+
+[debug]
+enabled = true
+
 ```
 
-The `tests` service runs `./testdata/runtest.sh`, provisioning databases and executing Go tests.
-
-## Example: Docker Build
-
-You can build the Docker image locally for development (this compiles the code from source):
-
-```bash
-docker build -t prest/prest:latest .
+### 启动prest 服务
+```shell
+go run .\cmd\prestd\main.go
 ```
-
-For release builds, GoReleaser uses the same `Dockerfile` but injects version information via build arguments:
-
-```bash
-docker build \
-  --build-arg VERSION=v1.0.0 \
-  --build-arg COMMIT=hash \
-  --build-arg DATE=2026-02-11 \
-  -t prest/prest:latest .
-```
-
