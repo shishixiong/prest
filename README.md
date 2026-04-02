@@ -29,8 +29,8 @@ Additionally, as Go has taken a huge role in many other vital projects such as K
 
 ### Run a gaussdb in docker
 - single node:
-- centralize 3 nodes:
-- distribution cluster:
+- centralize 3 nodes: https://open.codehub.huawei.com/innersource/gaussdb-operator_G/gaussdb-docker/files?ref=master
+- distribution cluster: https://open.codehub.huawei.com/innersource/gaussdb-operator_G/gaussdb-docker/files?ref=master
 
 ### Login into gaussdb and create database、user
 ```sql
